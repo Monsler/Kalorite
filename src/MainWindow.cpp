@@ -15,7 +15,8 @@ namespace Kalorite
     MainWindow::MainWindow() {
         resize(500, 150);
         setWindowTitle("Kalorite");
-
+        setWindowIcon(QIcon("kalorite"));
+        
         centralWidget = new QWidget(this);
 
         this->currentMenuBar = menuBar();

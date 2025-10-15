@@ -5,6 +5,8 @@
 #include <qlocale.h>
 
 int main(int argc, char** argv) {
+    QGuiApplication::setDesktopFileName("kalorite");
+
     QApplication app(argc, argv);
 
     QTranslator translator;

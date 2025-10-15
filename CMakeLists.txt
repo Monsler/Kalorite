@@ -44,3 +44,15 @@ target_link_libraries(kalorite PRIVATE
     KF6::CoreAddons
     KF6::I18n
     KF6::WidgetsAddons)
+
+install(TARGETS kalorite
+    DESTINATION bin
+)
+
+install(FILES data/com.monsler.Kalorite.desktop
+    DESTINATION share/applications
+)
+
+install(FILES data/com.monsler.Kalorite.svg
+    DESTINATION share/icons/hicolor/scalable/apps
+)
