@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
     qDebug() << "OS Locale: " << systemLocale.name();
     qDebug() << "==============";
 
-    if (translator.load(systemLocale, "kalorite", "_", "")) {
+    if (translator.load(systemLocale, "kalorite", "_", QCoreApplication::applicationDirPath())) {
         if (app.installTranslator(&translator)) {
             qDebug() << "Installed translator";
         } else {
