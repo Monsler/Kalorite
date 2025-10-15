@@ -15,12 +15,14 @@ find_package(KF6I18n NO_MODULE REQUIRED)
 find_package(KF6WidgetsAddons REQUIRED)
 
 find_package(KF6 REQUIRED COMPONENTS CoreAddons WidgetsAddons)
-find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools)
+find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools Multimedia)
 
 set(SRC
     src/main.cpp
     src/MainWindow.cpp
-    include/MainWindow.hpp)
+    include/MainWindow.hpp
+    include/PlasmaPercent.hpp
+    src/PlasmaPercent.cpp)
 
 qt_add_executable(kalorite
     ${SRC})
@@ -38,6 +40,7 @@ target_include_directories(kalorite PRIVATE include/)
 
 target_link_libraries(kalorite PRIVATE
     Qt6::Widgets
+    Qt6::Multimedia
     KF6::CoreAddons
     KF6::I18n
     KF6::WidgetsAddons)

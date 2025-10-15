@@ -4,8 +4,6 @@
 #include <qapplication.h>
 #include <qlocale.h>
 
-#define QM_PATH ":/." 
-
 int main(int argc, char** argv) {
     QApplication app(argc, argv);
 
