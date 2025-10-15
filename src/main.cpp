@@ -5,7 +5,7 @@
 #include <qlocale.h>
 
 int main(int argc, char** argv) {
-    QGuiApplication::setDesktopFileName("kalorite");
+    QGuiApplication::setDesktopFileName("com.monsler.Kalorite");
 
     QApplication app(argc, argv);
 
