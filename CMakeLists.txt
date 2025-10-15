@@ -34,6 +34,8 @@ qt_add_translations(kalorite
     
     SOURCES
         ${SRC}
+
+    INSTALL_DESTINATION ${CMAKE_INSTALL_DATADIR}/
 )
 
 target_include_directories(kalorite PRIVATE include/)
