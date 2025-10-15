@@ -8,5 +8,5 @@ Icon=com.monsler.Kalorite
 Keywords=player;sound;audio;kalorite
 Categories=Audio;Utility;Music
 Terminal=false
-Exec=/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=kalorite --file-forwarding com.monsler.Kalorite
+Exec=/usr/bin/flatpak run com.monsler.Kalorite
 StartupWMClass=kalorite
