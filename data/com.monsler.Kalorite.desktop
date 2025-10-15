@@ -8,4 +8,4 @@ Icon=kalorite
 Keywords=player;sound;audio;kalorite
 Categories=Audio;Utility;Music
 Terminal=false
-Exec=/home/monsler/Documents/Kalorite/build/kalorite
+Exec=/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=kalorite --file-forwarding com.monsler.kalorite

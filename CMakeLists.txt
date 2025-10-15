@@ -53,6 +53,6 @@ install(FILES data/com.monsler.Kalorite.desktop
     DESTINATION share/applications
 )
 
-install(FILES data/com.monsler.Kalorite.svg
+install(FILES data/com.monsler.Kalorite.png
     DESTINATION share/icons/hicolor/scalable/apps
 )
