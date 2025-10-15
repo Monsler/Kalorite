@@ -25,7 +25,8 @@ set(SRC
     src/PlasmaPercent.cpp)
 
 qt_add_executable(kalorite
-    ${SRC})
+    ${SRC}
+    resources.qrc)
 
 qt_add_translations(kalorite
     TS_FILES
@@ -56,10 +57,4 @@ install(FILES data/com.monsler.Kalorite.desktop
 
 install(FILES data/com.monsler.Kalorite.png
     DESTINATION share/icons/hicolor/scalable/apps
-)
-
-install(FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/kalorite_ru.qm
-    ${CMAKE_CURRENT_BINARY_DIR}/kalorite_en.qm
-    DESTINATION share/translations
 )
