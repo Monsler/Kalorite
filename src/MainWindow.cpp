@@ -6,9 +6,15 @@
 #include <qtimer.h>
 #include <kjob.h>
 #include <qmessagebox.h>
+#include <random>
+#include <algorithm>
 
 #define ICON_PLAY QIcon::fromTheme("media-playback-start")
 #define ICON_PAUSE QIcon::fromTheme("media-playback-pause")
+#define ICON_REPEAT QIcon::fromTheme("media-playlist-repeat")
+#define ICON_REPEAT_CURRENT QIcon::fromTheme("media-playlist-repeat-song")
+#define ICON_REPEAT_THE_LIST QIcon::fromTheme("media-playlist-repeat-amarok")
+#define ICON_REPEAT_SHUFFLE QIcon::fromTheme("media-playlist-shuffle")
 
 namespace Kalorite
 {
@@ -50,7 +56,9 @@ namespace Kalorite
         this->playerLayout = new QHBoxLayout();
 
         soundList = new QListWidget();
+        soundList->setContextMenuPolicy(Qt::CustomContextMenu);
         connect(soundList, &QListWidget::itemDoubleClicked, this, &MainWindow::onListSelection);
+        connect(soundList, &QListWidget::customContextMenuRequested, this, &MainWindow::onContextMenuSoundList);
 
         playbackButton = new QPushButton();
         playbackButton->setIcon(ICON_PLAY);
@@ -76,6 +84,13 @@ namespace Kalorite
         skipForwardButton->setEnabled(false);
         skipForwardButton->setToolTip(tr("SkipForward"));
 
+        repeatButton = new QPushButton();
+        repeatButton->setIcon(ICON_REPEAT);
+        repeatButton->setEnabled(false);
+        connect(repeatButton, &QPushButton::clicked, this, &MainWindow::onRepeatButtonTriggered);
+        repeatButton->setToolTip(tr("TooltipNoRepeat"));
+
+
         volumeBox = new QSpinBox();
         volumeBox->setMaximum(100);
         volumeBox->setMinimum(0);
@@ -88,6 +103,7 @@ namespace Kalorite
         this->playerLayout->addWidget(skipBackButton);
         this->playerLayout->addWidget(playbackButton);
         this->playerLayout->addWidget(skipForwardButton);
+        this->playerLayout->addWidget(repeatButton);
         this->playerLayout->addWidget(playbackSlider);
         this->playerLayout->addWidget(timeLabel);
         this->playerLayout->addWidget(volumeBox);
@@ -134,6 +150,7 @@ namespace Kalorite
         if (id >= 0 && id < listSize) {
             this->soundList->setCurrentRow(id);
             this->currentId = id;
+
             stopPlayback();
             setCurrentSong(this->soundList->item(id)->text().toStdString());
             startPlayback();
@@ -151,6 +168,23 @@ namespace Kalorite
     bool containsItem(QListWidget *list, const QString &text) {
         QList<QListWidgetItem*> found = list->findItems(text, Qt::MatchExactly);
         return !found.isEmpty();
+    }
+
+    void MainWindow::onContextMenuSoundList(const QPoint &pos) {
+        auto item = this->soundList->itemAt(pos);
+
+        if (item) {
+            QMenu menu;
+
+            QAction* actionRemove = menu.addAction(tr("RemoveFromList"));
+            actionRemove->setIcon(QIcon::fromTheme("document-close"));
+            connect(actionRemove, &QAction::triggered, [item, this, pos] () {
+                this->soundList->takeItem(this->soundList->currentRow());
+                this->genShuffle();
+            });
+
+            menu.exec(this->soundList->viewport()->mapToGlobal(pos));
+        }
     }
 
     void MainWindow::openButtonTriggered() {
@@ -172,6 +206,8 @@ namespace Kalorite
                 playbackButton->setEnabled(true);
                 playbackSlider->setEnabled(true);
                 skipForwardButton->setEnabled(true);
+                repeatButton->setEnabled(true);
+                genShuffle();
             } else {
                 QMessageBox::critical(nullptr, "Kalorite", tr("ErrorAlreadyHasElementInList"), QMessageBox::Ok);
             }
@@ -183,7 +219,7 @@ namespace Kalorite
         this->playbackButton->setIcon(ICON_PAUSE);
 
         this->mixer->play();
-        this->playbackTimer->start(1000);
+        this->playbackTimer->start(1);
     }
 
     void MainWindow::onPlayback() {
@@ -191,7 +227,7 @@ namespace Kalorite
     }
 
     void MainWindow::setPlaybackPos(const int percent) {
-
+        
     }
 
     void MainWindow::updateTimeLabel() {
@@ -220,20 +256,101 @@ namespace Kalorite
         this->percent.emitPercent(played);
     }
 
+    void MainWindow::onRepeatButtonTriggered() {
+        loopType++;
+        if (loopType > 3) {
+            loopType = 0;
+        }
+
+        if (loopType == 0) {
+            repeatButton->setIcon(ICON_REPEAT);
+            repeatButton->setToolTip(tr("TooltipNoRepeat"));
+        } else if (loopType == 1) {
+            repeatButton->setIcon(ICON_REPEAT_CURRENT);
+            repeatButton->setToolTip(tr("TooltipRepeatSingleTrack"));
+        } else if (loopType == 2) {
+            repeatButton->setToolTip(tr("TooltipRepeatList"));
+            repeatButton->setIcon(ICON_REPEAT_THE_LIST);
+        } else if (loopType == 3) {
+            repeatButton->setToolTip(tr("TooltipRepeatShuffle"));
+            genShuffle();
+            shufflePos = 0;
+            repeatButton->setIcon(ICON_REPEAT_SHUFFLE);
+        }
+    }
+
     void MainWindow::onSkipBack() {
-        int id = this->soundList->currentRow() - 1;
-        seekToTrack(id);
+        if (this->playbackSlider->value() > 5) {
+            this->playbackSlider->setValue(0);
+            this->mixer->setPosition(0);
+        } else {
+            int id = this->soundList->currentRow() - 1;
+            seekToTrack(id);
+        }
+        
     }
 
     void MainWindow::onSkipNext() {
-        int id = this->soundList->currentRow() + 1;
-        seekToTrack(id);
+        if (this->playbackSlider->value() < 95) {
+            this->playbackSlider->setValue(95);
+            this->mixer->setPosition(95 * this->mixer->duration() / 100);
+        } else {
+             int id = this->soundList->currentRow() + 1;
+            seekToTrack(id);
+        }
+    }
+
+    void MainWindow::genShuffle() {
+        int size = this->soundList->count();
+        shufflePos = 0;
+
+        shuffle.resize(size);
+
+        for (int i = 0; i < size; i++) {
+            shuffle[i] = i;
+        }
+
+        std::random_device rd;
+        std::mt19937_64 g(rd());
+
+        std::shuffle(shuffle.begin(), shuffle.end(), g);
     }
 
     void MainWindow::onMediaPlayerStatusChanged(QMediaPlayer::PlaybackState status) {
-        if (status == QMediaPlayer::PlaybackState::StoppedState) {
-            stopPlayback();
-            this->mixer->setPosition(0);
+        if (status == QMediaPlayer::PlaybackState::StoppedState && isPlaying) {
+            if (loopType == 0) {
+                stopPlayback();
+                this->mixer->setPosition(0);
+            } else if(loopType == 1) {
+                this->mixer->setPosition(0);
+                startPlayback();
+            } else if (loopType == 2) {
+                int newTrack = this->currentId + 1;
+
+                if (newTrack < this->soundList->count()) {
+                    this->currentId = newTrack;
+                    this->soundList->setCurrentRow(this->currentId);
+                    setCurrentSong(this->soundList->item(this->currentId)->text().toStdString());
+                } else {
+                    this->currentId = 0;
+                    this->soundList->setCurrentRow(this->currentId);
+                    setCurrentSong(this->soundList->item(this->currentId)->text().toStdString());
+                }
+
+                startPlayback();
+            } else if (loopType == 3) {
+                this->currentId = shuffle[shufflePos];
+                this->soundList->setCurrentRow(this->currentId);
+
+                setCurrentSong(this->soundList->item(this->currentId)->text().toStdString());
+                startPlayback();
+
+                shufflePos++;
+                if (shufflePos == shuffle.size() - 1) {
+                    qDebug() << "Reached shuffle end; Generating a new one";
+                    genShuffle();
+                }
+            }
         }
     }
 

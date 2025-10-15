@@ -30,6 +30,8 @@ namespace Kalorite
         void playbackSliderReleased();
         void onListSelection(QListWidgetItem *item);
         void onSpinTriggered(const int value);
+        void onRepeatButtonTriggered();
+        void onContextMenuSoundList(const QPoint &pos);
 
         private:
         void setCurrentSong(const std::string path);
@@ -38,6 +40,7 @@ namespace Kalorite
         void updateTimeLabel();
         void setPlaybackPos(const int percent);
         void seekToTrack(const int id);
+        void genShuffle();
 
         protected:
         void closeEvent(QCloseEvent* event) override;
@@ -48,6 +51,7 @@ namespace Kalorite
         QPushButton* playbackButton;
         QPushButton* skipBackButton;
         QPushButton* skipForwardButton;
+        QPushButton* repeatButton;
 
         QVBoxLayout* mainLayout;
         QHBoxLayout* playerLayout;
@@ -67,6 +71,9 @@ namespace Kalorite
         int trackLengthSeconds = 0;
         int currentId;
         float volume = 1.0f;
+        int loopType = 0;
+        std::vector<int> shuffle;
+        int shufflePos = 0;
 
         PlasmaPercent percent;
     };

@@ -24,9 +24,13 @@ set(SRC
     include/PlasmaPercent.hpp
     src/PlasmaPercent.cpp)
 
+configure_file(${CMAKE_SOURCE_DIR}/resources.qrc
+               ${CMAKE_BINARY_DIR}/resources.qrc
+               COPYONLY) 
+
 qt_add_executable(kalorite
     ${SRC}
-    resources.qrc)
+    ${CMAKE_BINARY_DIR}/resources.qrc)
 
 qt_add_translations(kalorite
     TS_FILES

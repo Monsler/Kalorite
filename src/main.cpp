@@ -23,7 +23,8 @@ int main(int argc, char** argv) {
             qWarning() << "Error installing translator";
         }
     } else {
-        qWarning() << "Failed to load translator for: " << systemLocale.name();
+        qWarning() << "Failed to load translator for: " << systemLocale.name() << "; Loading english";
+        translator.load(":/translations/kalorite_en.qm");
     }
 
     Kalorite::MainWindow window;
