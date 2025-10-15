@@ -56,3 +56,9 @@ install(FILES data/com.monsler.Kalorite.desktop
 install(FILES data/com.monsler.Kalorite.png
     DESTINATION share/icons/hicolor/scalable/apps
 )
+
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/kalorite_ru.qm
+    ${CMAKE_CURRENT_BINARY_DIR}/kalorite_en.qm
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/translations
+)
