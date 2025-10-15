@@ -2,8 +2,8 @@
 <!DOCTYPE RCC>
 <RCC version="1.0">
 <qresource prefix="/translations">
-    <file alias="kalorite_ru.qm">${CMAKE_CURRENT_BINARY_DIR}/kalorite_ru.qm</file>
-    <file alias="kalorite_en.qm">${CMAKE_CURRENT_BINARY_DIR}/kalorite_en.qm</file>
+    <file alias="kalorite_ru.qm">kalorite_ru.qm</file>
+    <file alias="kalorite_en.qm">kalorite_en.qm</file>
 </qresource>
 </RCC>
 
