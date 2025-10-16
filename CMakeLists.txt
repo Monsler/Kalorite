@@ -63,5 +63,5 @@ install(FILES data/io.github.monsler.Kalorite.appdata.xml
 )
 
 install(FILES data/io.github.monsler.Kalorite.png
-    DESTINATION share/icons/hicolor/scalable/apps
+    DESTINATION share/icons/hicolor/512x512/apps
 )
