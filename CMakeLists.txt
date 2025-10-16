@@ -58,6 +58,9 @@ install(FILES data/io.github.monsler.Kalorite.desktop
     DESTINATION share/applications
 )
 
+install(FILES data/io.github.monsler.Kalorite.appdata.xml
+    DESTINATION share/appdata
+)
 
 install(FILES data/io.github.monsler.Kalorite.png
     DESTINATION share/icons/hicolor/scalable/apps
