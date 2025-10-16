@@ -3,10 +3,10 @@
 Type=Application
 Name=Kalorite
 GenericName=Kalorite
-Comment=Lightweight KDE Audio player
+Comment=Lightweight Audio player
 Icon=com.monsler.Kalorite
 Keywords=player;sound;audio;kalorite
 Categories=Audio;Utility;Music
 Terminal=false
-Exec=/usr/bin/flatpak run com.monsler.Kalorite
+Exec=/app/bin/kalorite
 StartupWMClass=kalorite

@@ -54,11 +54,11 @@ install(TARGETS kalorite
     DESTINATION bin
 )
 
-install(FILES data/com.monsler.Kalorite.desktop
+install(FILES data/io.github.monsler.Kalorite.desktop
     DESTINATION share/applications
 )
 
 
-install(FILES data/com.monsler.Kalorite.png
+install(FILES data/io.github.monsler.Kalorite.png
     DESTINATION share/icons/hicolor/scalable/apps
 )
