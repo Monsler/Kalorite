@@ -32,6 +32,8 @@ namespace Kalorite
         void onSpinTriggered(const int value);
         void onRepeatButtonTriggered();
         void onContextMenuSoundList(const QPoint &pos);
+        void savePlaylistTriggered();
+        void loadPlaylistTriggered();
 
         private:
         void setCurrentSong(const std::string path);

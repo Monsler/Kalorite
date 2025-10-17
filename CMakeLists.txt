@@ -17,6 +17,8 @@ find_package(KF6WidgetsAddons REQUIRED)
 find_package(KF6 REQUIRED COMPONENTS CoreAddons WidgetsAddons)
 find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools Multimedia)
 
+add_subdirectory(external/json)
+
 set(SRC
     src/main.cpp
     src/MainWindow.cpp
@@ -48,7 +50,8 @@ target_link_libraries(kalorite PRIVATE
     Qt6::Multimedia
     KF6::CoreAddons
     KF6::I18n
-    KF6::WidgetsAddons)
+    KF6::WidgetsAddons
+    nlohmann_json::nlohmann_json)
 
 install(TARGETS kalorite
     DESTINATION bin

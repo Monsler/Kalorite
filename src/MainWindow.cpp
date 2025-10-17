@@ -1,4 +1,6 @@
 #include "MainWindow.hpp"
+#include <fstream>
+#include <ostream>
 #include <qapplication.h>
 #include <qnamespace.h>
 #include <qfiledialog.h>
@@ -8,6 +10,7 @@
 #include <qmessagebox.h>
 #include <random>
 #include <algorithm>
+#include <nlohmann/json.hpp>
 
 #define ICON_PLAY QIcon::fromTheme("media-playback-start")
 #define ICON_PAUSE QIcon::fromTheme("media-playback-pause")
@@ -29,16 +32,32 @@ namespace Kalorite
         this->fileMenu = this->currentMenuBar->addMenu(tr("&File"));
 
         QAction* openSongAction = new QAction(tr("&OpenSong"), this);
-        this->fileMenu->addAction(openSongAction);
         openSongAction->setShortcut(QKeySequence::fromString("Ctrl+O"));
+
+        QAction* savePlaylistAction = new QAction(tr("&SavePlaylistAs"));
+        savePlaylistAction->setShortcut(QKeySequence::fromString("Ctrl+S"));
+
+        QAction* loadPlaylistAction = new QAction(tr("&LoadPlaylistFrom"));
+        loadPlaylistAction->setShortcut(QKeySequence::fromString("Ctrl+V"));
+
+        this->fileMenu->addAction(openSongAction);
+        this->fileMenu->addAction(savePlaylistAction);
+        this->fileMenu->addAction(loadPlaylistAction);
+        
 
         QAction *exitAction = new QAction(tr("&Exit"), this);
         this->fileMenu->addAction(exitAction);
         exitAction->setShortcut(QKeySequence::fromString("Ctrl+Esc"));
 
-        openSongAction->setIcon(QIcon::fromTheme("document-open"));
+        openSongAction->setIcon(QIcon::fromTheme("list-add"));
         exitAction->setIcon(QIcon::fromTheme("application-exit"));
+        savePlaylistAction->setIcon(QIcon::fromTheme("document-save-as"));
+        loadPlaylistAction->setIcon(QIcon::fromTheme("document-open"));
 
+        connect(openSongAction, &QAction::triggered, this, &MainWindow::openButtonTriggered);
+        connect(savePlaylistAction, &QAction::triggered, this, &MainWindow::savePlaylistTriggered);
+        connect(loadPlaylistAction, &QAction::triggered, this, &MainWindow::loadPlaylistTriggered);
+        
         this->mixer = new QMediaPlayer();
         this->output = new QAudioOutput();
         connect(this->mixer, &QMediaPlayer::playbackStateChanged, this, &MainWindow::onMediaPlayerStatusChanged);
@@ -48,7 +67,7 @@ namespace Kalorite
 
         connect(exitAction, &QAction::triggered, this, &QApplication::quit);
 
-        connect(openSongAction, &QAction::triggered, this, &MainWindow::openButtonTriggered);
+        
 
         setMenuBar(this->currentMenuBar);
 
@@ -117,6 +136,40 @@ namespace Kalorite
         show();
     }
 
+    void MainWindow::savePlaylistTriggered() {
+        QString saveFilePath = QFileDialog::getSaveFileName(this, tr("&SavePlaylistAs"), QDir::homePath(), tr("PlaylistFileFilters"));
+        if (!saveFilePath.isEmpty()) {
+            nlohmann::json playlist = {};
+            for (int i = 0; i < this->soundList->count(); i++) {
+                auto item = this->soundList->item(i);
+                playlist[i] = item->text().toStdString();
+            }
+
+            std::ofstream file(saveFilePath.toStdString(), std::ios::app);
+            file << playlist;
+            file.close();
+        }
+    }
+
+    void MainWindow::loadPlaylistTriggered() {
+        QString openPath = QFileDialog::getOpenFileName(this, tr("&LoadPlaylistFrom"), QDir::homePath(), tr("PlaylistFileFilters"));
+
+        if (!openPath.isEmpty()) {
+            this->soundList->clear();
+            std::ifstream file(openPath.toStdString());
+        
+            nlohmann::json playlist;
+            file >> playlist;
+            file.close();
+
+            for (int i = 0; i < playlist.size(); i++) {
+                this->soundList->addItem(QString::fromStdString(playlist[i]));
+            }
+            this->soundList->setCurrentRow(0);
+            setCurrentSong(this->soundList->item(0)->text().toStdString());
+        }
+    }
+
     void MainWindow::onSpinTriggered(const int value) {
         this->volume = float(value) / 100;
         this->output->setVolume(this->volume);
@@ -163,6 +216,12 @@ namespace Kalorite
         this->mixer->setSource(QUrl::fromLocalFile(QString::fromStdString(path)));
         this->trackLengthSeconds = this->mixer->duration() / 1000;
         updateTimeLabel();
+
+        skipBackButton->setEnabled(true);
+        playbackButton->setEnabled(true);
+        playbackSlider->setEnabled(true);
+        skipForwardButton->setEnabled(true);
+        repeatButton->setEnabled(true);
     }
 
     bool containsItem(QListWidget *list, const QString &text) {
@@ -192,7 +251,6 @@ namespace Kalorite
 
         if (!openPath.isEmpty()) {
             if(!containsItem(this->soundList, openPath)) {
-
                 if (this->currentAudio == "") {
                     this->currentAudio = openPath.toStdString();
                     this->setCurrentSong(this->currentAudio);
@@ -339,17 +397,17 @@ namespace Kalorite
 
                 startPlayback();
             } else if (loopType == 3) {
-                this->currentId = shuffle[shufflePos];
-                this->soundList->setCurrentRow(this->currentId);
-
-                setCurrentSong(this->soundList->item(this->currentId)->text().toStdString());
-                startPlayback();
-
-                shufflePos++;
                 if (shufflePos == shuffle.size() - 1) {
                     qDebug() << "Reached shuffle end; Generating a new one";
                     genShuffle();
                 }
+
+                this->currentId = shuffle[shufflePos];
+                this->soundList->setCurrentRow(this->currentId);
+                setCurrentSong(this->soundList->item(this->currentId)->text().toStdString());
+                startPlayback();
+
+                shufflePos++;
             }
         }
     }
