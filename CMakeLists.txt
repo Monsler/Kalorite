@@ -9,7 +9,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(ECM 1.0 REQUIRED NO_MODULE) 
+find_package(ECM 1.0 REQUIRED NO_MODULE)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ECM_MODULE_PATH})
 find_package(KF6I18n NO_MODULE REQUIRED)
 find_package(KF6WidgetsAddons REQUIRED)
@@ -28,7 +28,7 @@ set(SRC
 
 configure_file(${CMAKE_SOURCE_DIR}/resources.qrc
                ${CMAKE_BINARY_DIR}/resources.qrc
-               COPYONLY) 
+               COPYONLY)
 
 qt_add_executable(kalorite
     ${SRC}
@@ -38,7 +38,7 @@ qt_add_translations(kalorite
     TS_FILES
         languages/kalorite_ru.ts
         languages/kalorite_en.ts
-    
+
     SOURCES
         ${SRC}
 )

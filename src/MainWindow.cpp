@@ -1,6 +1,5 @@
 #include "MainWindow.hpp"
 #include <fstream>
-#include <ostream>
 #include <qapplication.h>
 #include <qnamespace.h>
 #include <qfiledialog.h>
@@ -25,7 +24,7 @@ namespace Kalorite
         resize(500, 150);
         setWindowTitle("Kalorite");
         setWindowIcon(QIcon("kalorite"));
-        
+
         centralWidget = new QWidget(this);
 
         this->currentMenuBar = menuBar();
@@ -43,7 +42,7 @@ namespace Kalorite
         this->fileMenu->addAction(openSongAction);
         this->fileMenu->addAction(savePlaylistAction);
         this->fileMenu->addAction(loadPlaylistAction);
-        
+
 
         QAction *exitAction = new QAction(tr("&Exit"), this);
         this->fileMenu->addAction(exitAction);
@@ -57,7 +56,7 @@ namespace Kalorite
         connect(openSongAction, &QAction::triggered, this, &MainWindow::openButtonTriggered);
         connect(savePlaylistAction, &QAction::triggered, this, &MainWindow::savePlaylistTriggered);
         connect(loadPlaylistAction, &QAction::triggered, this, &MainWindow::loadPlaylistTriggered);
-        
+
         this->mixer = new QMediaPlayer();
         this->output = new QAudioOutput();
         connect(this->mixer, &QMediaPlayer::playbackStateChanged, this, &MainWindow::onMediaPlayerStatusChanged);
@@ -66,8 +65,6 @@ namespace Kalorite
         this->output->setVolume(volume);
 
         connect(exitAction, &QAction::triggered, this, &QApplication::quit);
-
-        
 
         setMenuBar(this->currentMenuBar);
 
@@ -115,7 +112,7 @@ namespace Kalorite
         volumeBox->setMinimum(0);
         volumeBox->setValue(100);
         connect(volumeBox, &QSpinBox::valueChanged, this, &MainWindow::onSpinTriggered);
-        
+
         connect(skipForwardButton, &QPushButton::clicked, this, &MainWindow::onSkipNext);
         setCentralWidget(this->centralWidget);
 
@@ -145,7 +142,7 @@ namespace Kalorite
                 playlist[i] = item->text().toStdString();
             }
 
-            std::ofstream file(saveFilePath.toStdString(), std::ios::app);
+            std::ofstream file(saveFilePath.toStdString());
             file << playlist;
             file.close();
         }
@@ -157,7 +154,7 @@ namespace Kalorite
         if (!openPath.isEmpty()) {
             this->soundList->clear();
             std::ifstream file(openPath.toStdString());
-        
+
             nlohmann::json playlist;
             file >> playlist;
             file.close();
@@ -167,6 +164,8 @@ namespace Kalorite
             }
             this->soundList->setCurrentRow(0);
             setCurrentSong(this->soundList->item(0)->text().toStdString());
+
+            genShuffle();
         }
     }
 
@@ -196,7 +195,7 @@ namespace Kalorite
     void MainWindow::closeEvent(QCloseEvent* event) {
         QApplication::exit();
     }
-    
+
     void MainWindow::seekToTrack(const int id) {
         int listSize = this->soundList->count();
 
@@ -256,7 +255,7 @@ namespace Kalorite
                     this->setCurrentSong(this->currentAudio);
                     this->currentId = 0;
                 }
-            
+
                 soundList->addItem(openPath);
                 this->soundList->setCurrentRow(this->currentId);
 
@@ -285,7 +284,7 @@ namespace Kalorite
     }
 
     void MainWindow::setPlaybackPos(const int percent) {
-        
+
     }
 
     void MainWindow::updateTimeLabel() {
@@ -345,7 +344,7 @@ namespace Kalorite
             int id = this->soundList->currentRow() - 1;
             seekToTrack(id);
         }
-        
+
     }
 
     void MainWindow::onSkipNext() {
