@@ -11,7 +11,8 @@
     "--socket=wayland",
     "--socket=pulseaudio",
     "--talk-name=com.canonical.Unity",
-    "--device=dri"
+    "--device=dri",
+    "--filesystem=xdg-download"
   ],
   "modules": [
     {
@@ -21,7 +22,7 @@
         {
           "type": "git",
           "url": "https://github.com/Monsler/Kalorite",
-          "tag": "v2.0.0-rc0"
+          "tag": "v2.0.0"
         }
       ],
       "config-opts": ["-DCMAKE_BUILD_TYPE=Release"]

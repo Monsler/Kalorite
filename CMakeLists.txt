@@ -27,7 +27,10 @@ set(SRC
     include/MainWindow.hpp
     include/PlasmaPercent.hpp
     src/PlasmaPercent.cpp
-    src/Mixer.cpp)
+    src/Mixer.cpp
+    src/SongDownloader.cpp
+    include/SongDownloader.hpp
+)
 
 configure_file(${CMAKE_SOURCE_DIR}/resources.qrc
                ${CMAKE_BINARY_DIR}/resources.qrc

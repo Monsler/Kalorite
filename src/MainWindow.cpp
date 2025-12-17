@@ -29,6 +29,8 @@ namespace Kalorite
 
         centralWidget = new QWidget(this);
 
+        this->songDownloader = new SongDownloader(this);
+
         this->currentMenuBar = menuBar();
         this->fileMenu = this->currentMenuBar->addMenu(tr("&File"));
 
@@ -144,7 +146,7 @@ namespace Kalorite
         if (!saveFilePath.isEmpty()) {
             nlohmann::json playlist = {};
             for (int i = 0; i < this->soundList->count(); i++) {
-                auto item = this->soundList->item(i);
+                let item = this->soundList->item(i);
                 playlist[i] = item->text().toStdString();
             }
 
@@ -155,10 +157,7 @@ namespace Kalorite
     }
 
     void MainWindow::openSoundFileDownloadDialog() {
-        qDebug() << "DownloadSound";
-        QWidget frame(nullptr);
-        frame.setWindowTitle(tr("&DownloadSound"));
-        frame.show();
+       this->songDownloader->show();
     }
 
     void MainWindow::loadPlaylistTriggered() {
@@ -241,7 +240,7 @@ namespace Kalorite
     }
 
     void MainWindow::onContextMenuSoundList(const QPoint &pos) {
-        auto item = this->soundList->itemAt(pos);
+        let item = this->soundList->itemAt(pos);
 
         if (item) {
             QMenu menu;

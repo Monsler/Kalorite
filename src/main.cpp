@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
         }
     } else {
         qWarning() << "Failed to load translator for: " << systemLocale.name() << "; Loading english";
-        translator.load(":/translations/kalorite_en.qm");
+        let _ = translator.load(":/translations/kalorite_en.qm");
     }
 
     Kalorite::MainWindow window;

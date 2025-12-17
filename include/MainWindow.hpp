@@ -1,3 +1,5 @@
+#define let auto
+
 #pragma once
 #include "Mixer.hpp"
 #include "PlasmaPercent.hpp"
@@ -11,6 +13,7 @@
 #include <qlistwidget.h>
 #include <qmediaplayer.h>
 #include <qspinbox.h>
+#include "SongDownloader.hpp"
 
 namespace Kalorite
 {
@@ -19,6 +22,8 @@ namespace Kalorite
 
         public:
         MainWindow();
+        void setCurrentSong(const std::string path);
+        QListWidget* soundList;
 
         private slots:
         void onPlayTriggered();
@@ -38,7 +43,7 @@ namespace Kalorite
         void openSoundFileDownloadDialog();
 
         private:
-        void setCurrentSong(const std::string path);
+
         void startPlayback();
         void stopPlayback();
         void updateTimeLabel();
@@ -63,9 +68,10 @@ namespace Kalorite
         QSlider* playbackSlider;
         QWidget* centralWidget;
         QLabel* timeLabel;
-        QListWidget* soundList;
+
 
         Mixer* mixer;
+        SongDownloader* songDownloader;
 
         QTimer* playbackTimer;
 

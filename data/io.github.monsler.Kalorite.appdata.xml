@@ -36,10 +36,10 @@
   <releases>
     <release version="2.0.0" date="2025-12-18">
     <description>
-      <p>Thanks for using Kalorite! This update includes:</p>
+      <p>Thanks everyone for using Kalorite! This update includes:</p>
       <ul>
-        <li>Rehauled mixer code (no more spaghetti code/li>
-        <li>You now can download tracks from url</li>
+        <li>Rehauled mixer code (no more spaghetti code</li>
+        <li>Track downloading from url support</li>
         <li>Playback now supports percent displaying in taskbar on KDE Plasma</li>
       </ul>
     </description>
