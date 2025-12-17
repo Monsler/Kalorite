@@ -1,4 +1,5 @@
 #include "MainWindow.hpp"
+#include "Mixer.hpp"
 #include <fstream>
 #include <qaction.h>
 #include <qapplication.h>
@@ -64,12 +65,10 @@ namespace Kalorite
         connect(loadPlaylistAction, &QAction::triggered, this, &MainWindow::loadPlaylistTriggered);
         connect(downloadSoundAction, &QAction::triggered, this, &MainWindow::openSoundFileDownloadDialog);
 
-        this->mixer = new QMediaPlayer();
-        this->output = new QAudioOutput();
-        connect(this->mixer, &QMediaPlayer::playbackStateChanged, this, &MainWindow::onMediaPlayerStatusChanged);
+        this->mixer = new Mixer();
+        connect(this->mixer->corePlayer, &QMediaPlayer::playbackStateChanged, this, &MainWindow::onMediaPlayerStatusChanged);
 
-        this->mixer->setAudioOutput(this->output);
-        this->output->setVolume(volume);
+        this->mixer->setVolume(volume);
 
         connect(exitAction, &QAction::triggered, this, &QApplication::quit);
 
@@ -184,8 +183,7 @@ namespace Kalorite
     }
 
     void MainWindow::onSpinTriggered(const int value) {
-        this->volume = float(value) / 100;
-        this->output->setVolume(this->volume);
+        this->mixer->setVolume(value);
     }
 
     void MainWindow::onListSelection(QListWidgetItem *item) {
@@ -201,7 +199,7 @@ namespace Kalorite
         startPlayback();
         int pos = playbackSlider->value();
 
-        int sec = pos * this->mixer->duration() / 100;
+        int sec = pos * this->mixer->corePlayer->duration() / 100;
         this->mixer->setPosition(sec);
         updateTimeLabel();
     }
@@ -226,8 +224,8 @@ namespace Kalorite
     void MainWindow::setCurrentSong(const std::string path) {
         this->currentAudio = path;
         setWindowTitle(QString::fromStdString(std::format("Kalorite - {}", this->currentAudio)));
-        this->mixer->setSource(QUrl::fromLocalFile(QString::fromStdString(path)));
-        this->trackLengthSeconds = this->mixer->duration() / 1000;
+        this->mixer->setCurrent(path);
+        this->trackLengthSeconds = this->mixer->corePlayer->duration() / 1000;
         updateTimeLabel();
 
         skipBackButton->setEnabled(true);
@@ -302,12 +300,12 @@ namespace Kalorite
     }
 
     void MainWindow::updateTimeLabel() {
-        this->trackLengthSeconds = this->mixer->duration() / 1000;
+        this->trackLengthSeconds = this->mixer->corePlayer->duration() / 1000;
         int totalMinutes = (this->trackLengthSeconds % 3600) / 60;
         int totalHours = this->trackLengthSeconds / 3600;
         int totalSecondsLength = this->trackLengthSeconds % 60;
 
-        int totalSeconds = mixer->position() / 1000;
+        int totalSeconds = mixer->corePlayer->position() / 1000;
         int minutes = (totalSeconds % 3600) / 60;
         int hours = totalSeconds / 3600;
         int seconds = totalSeconds % 60;
@@ -364,7 +362,7 @@ namespace Kalorite
     void MainWindow::onSkipNext() {
         if (this->playbackSlider->value() < 95) {
             this->playbackSlider->setValue(95);
-            this->mixer->setPosition(95 * this->mixer->duration() / 100);
+            this->mixer->setPosition(95 * this->mixer->corePlayer->duration() / 100);
         } else {
              int id = this->soundList->currentRow() + 1;
             seekToTrack(id);

@@ -1,4 +1,5 @@
 #pragma once
+#include "Mixer.hpp"
 #include "PlasmaPercent.hpp"
 #include <qtmetamacros.h>
 #include <qmainwindow.h>
@@ -63,8 +64,9 @@ namespace Kalorite
         QWidget* centralWidget;
         QLabel* timeLabel;
         QListWidget* soundList;
-        QMediaPlayer* mixer;
-        QAudioOutput* output;
+
+        Mixer* mixer;
+
         QTimer* playbackTimer;
 
         QSpinBox* volumeBox;

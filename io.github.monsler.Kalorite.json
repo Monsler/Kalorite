@@ -21,7 +21,7 @@
         {
           "type": "git",
           "url": "https://github.com/Monsler/Kalorite",
-          "tag": "v1.1.0.1"
+          "tag": "v2.0.0-rc0"
         }
       ],
       "config-opts": ["-DCMAKE_BUILD_TYPE=Release"]

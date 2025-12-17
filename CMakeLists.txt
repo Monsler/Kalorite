@@ -26,7 +26,8 @@ set(SRC
     src/MainWindow.cpp
     include/MainWindow.hpp
     include/PlasmaPercent.hpp
-    src/PlasmaPercent.cpp)
+    src/PlasmaPercent.cpp
+    src/Mixer.cpp)
 
 configure_file(${CMAKE_SOURCE_DIR}/resources.qrc
                ${CMAKE_BINARY_DIR}/resources.qrc
