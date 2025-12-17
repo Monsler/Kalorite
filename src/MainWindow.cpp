@@ -57,10 +57,12 @@ namespace Kalorite
         exitAction->setIcon(QIcon::fromTheme("application-exit"));
         savePlaylistAction->setIcon(QIcon::fromTheme("document-save-as"));
         loadPlaylistAction->setIcon(QIcon::fromTheme("document-open"));
+        downloadSoundAction->setIcon(QIcon::fromTheme("download"));
 
         connect(openSongAction, &QAction::triggered, this, &MainWindow::openButtonTriggered);
         connect(savePlaylistAction, &QAction::triggered, this, &MainWindow::savePlaylistTriggered);
         connect(loadPlaylistAction, &QAction::triggered, this, &MainWindow::loadPlaylistTriggered);
+        connect(downloadSoundAction, &QAction::triggered, this, &MainWindow::openSoundFileDownloadDialog);
 
         this->mixer = new QMediaPlayer();
         this->output = new QAudioOutput();
@@ -151,6 +153,13 @@ namespace Kalorite
             file << playlist;
             file.close();
         }
+    }
+
+    void MainWindow::openSoundFileDownloadDialog() {
+        qDebug() << "DownloadSound";
+        QWidget frame(nullptr);
+        frame.setWindowTitle(tr("&DownloadSound"));
+        frame.show();
     }
 
     void MainWindow::loadPlaylistTriggered() {

@@ -34,6 +34,7 @@ namespace Kalorite
         void onContextMenuSoundList(const QPoint &pos);
         void savePlaylistTriggered();
         void loadPlaylistTriggered();
+        void openSoundFileDownloadDialog();
 
         private:
         void setCurrentSong(const std::string path);
@@ -67,7 +68,7 @@ namespace Kalorite
         QTimer* playbackTimer;
 
         QSpinBox* volumeBox;
-        
+
         std::string currentAudio;
         bool isPlaying = false;
         int trackLengthSeconds = 0;

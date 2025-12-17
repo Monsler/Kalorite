@@ -17,7 +17,7 @@ find_package(KF6I18n NO_MODULE REQUIRED)
 find_package(KF6WidgetsAddons REQUIRED)
 
 find_package(KF6 REQUIRED COMPONENTS CoreAddons WidgetsAddons)
-find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools Multimedia)
+find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools Multimedia DBus)
 
 add_subdirectory(external/json)
 
@@ -53,6 +53,7 @@ target_link_libraries(kalorite PRIVATE
     KF6::CoreAddons
     KF6::I18n
     KF6::WidgetsAddons
+    Qt6::DBus
     nlohmann_json::nlohmann_json)
 
 install(TARGETS kalorite

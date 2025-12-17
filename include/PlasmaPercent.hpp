@@ -1,15 +1,11 @@
 #pragma once
-#include <kjob.h>
+#include <qobject.h>
 #include <qtmetamacros.h>
 
 namespace Kalorite
 {
-    class PlasmaPercent : public KJob {
+    class PlasmaPercent : public QObject {
         Q_OBJECT
-        
-        void start() override {
-            setPercent(progressPercent);
-        }
 
         public:
         void emitPercent(const int percent);
