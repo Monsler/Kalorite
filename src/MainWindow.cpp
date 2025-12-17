@@ -1,5 +1,6 @@
 #include "MainWindow.hpp"
 #include <fstream>
+#include <qaction.h>
 #include <qapplication.h>
 #include <qnamespace.h>
 #include <qfiledialog.h>
@@ -30,7 +31,7 @@ namespace Kalorite
         this->currentMenuBar = menuBar();
         this->fileMenu = this->currentMenuBar->addMenu(tr("&File"));
 
-        QAction* openSongAction = new QAction(tr("&OpenSong"), this);
+        QAction* openSongAction = new QAction(tr("&OpenSong"));
         openSongAction->setShortcut(QKeySequence::fromString("Ctrl+O"));
 
         QAction* savePlaylistAction = new QAction(tr("&SavePlaylistAs"));
@@ -39,9 +40,13 @@ namespace Kalorite
         QAction* loadPlaylistAction = new QAction(tr("&LoadPlaylistFrom"));
         loadPlaylistAction->setShortcut(QKeySequence::fromString("Ctrl+V"));
 
+        QAction* downloadSoundAction = new QAction(tr("&DownloadSound"));
+        downloadSoundAction->setShortcut(QKeySequence::fromString("Ctrl+D"));
+
         this->fileMenu->addAction(openSongAction);
         this->fileMenu->addAction(savePlaylistAction);
         this->fileMenu->addAction(loadPlaylistAction);
+        this->fileMenu->addAction(downloadSoundAction);
 
 
         QAction *exitAction = new QAction(tr("&Exit"), this);

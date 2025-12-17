@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.15)
 
 project(kalorite VERSION 0.1)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STRANDARD_REQUIRED ON)
 
