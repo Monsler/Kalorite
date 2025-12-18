@@ -70,7 +70,7 @@ namespace Kalorite
         this->mixer = new Mixer();
         connect(this->mixer->corePlayer, &QMediaPlayer::playbackStateChanged, this, &MainWindow::onMediaPlayerStatusChanged);
 
-        this->mixer->setVolume(volume);
+        this->mixer->setVolume(100);
 
         connect(exitAction, &QAction::triggered, this, &QApplication::quit);
 
@@ -248,7 +248,8 @@ namespace Kalorite
             QAction* actionRemove = menu.addAction(tr("RemoveFromList"));
             actionRemove->setIcon(QIcon::fromTheme("document-close"));
             connect(actionRemove, &QAction::triggered, [item, this, pos] () {
-                this->soundList->takeItem(this->soundList->currentRow());
+                delete this->soundList->takeItem(this->soundList->currentRow());
+                this->setWindowTitle("Kalorite");
                 this->genShuffle();
             });
 

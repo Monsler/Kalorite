@@ -2,6 +2,7 @@
 
 #include <qabstractspinbox.h>
 #include <qboxlayout.h>
+#include <qlabel.h>
 #include <qobject.h>
 #include <qprogressbar.h>
 #include <qwidget.h>
@@ -33,6 +34,7 @@ namespace Kalorite {
     private:
         QWidget* frame;
         QVBoxLayout* layout;
+        QLabel* downloadStatus;
         QHBoxLayout* buttonLayout;
         QLineEdit* urlInput;
         QPushButton* downloadButton;

@@ -1,3 +1,4 @@
+#include <qobject.h>
 #define let auto
 
 #pragma once
@@ -17,6 +18,9 @@
 
 namespace Kalorite
 {
+
+    bool containsItem(QListWidget *list, const QString& text);
+
     class MainWindow : public QMainWindow {
         Q_OBJECT
 
@@ -81,7 +85,6 @@ namespace Kalorite
         bool isPlaying = false;
         int trackLengthSeconds = 0;
         int currentId;
-        float volume = 1.0f;
         int loopType = 0;
         std::vector<int> shuffle;
         int shufflePos = 0;

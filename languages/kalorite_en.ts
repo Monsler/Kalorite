@@ -109,24 +109,29 @@
 <context>
     <name>Kalorite::SongDownloader</name>
     <message>
-        <location filename="../src/SongDownloader.cpp" line="10"/>
+        <location filename="../src/SongDownloader.cpp" line="16"/>
         <source>&amp;DownloadSound</source>
         <translation type="unfinished">URL Audio Downloader</translation>
     </message>
     <message>
-        <location filename="../src/SongDownloader.cpp" line="16"/>
+        <location filename="../src/SongDownloader.cpp" line="22"/>
         <source>&amp;DownloadSoundPlaceholder</source>
         <translation type="unfinished">URL Address...</translation>
     </message>
     <message>
-        <location filename="../src/SongDownloader.cpp" line="21"/>
+        <location filename="../src/SongDownloader.cpp" line="27"/>
         <source>&amp;DownloadSoundStart</source>
         <translation type="unfinished">Begin</translation>
     </message>
     <message>
-        <location filename="../src/SongDownloader.cpp" line="24"/>
+        <location filename="../src/SongDownloader.cpp" line="30"/>
         <source>&amp;DownloadSoundCancel</source>
         <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+        <location filename="../src/SongDownloader.cpp" line="79"/>
+        <source>&amp;SongDlIndicator</source>
+        <translation type="unfinished">Downloading: %1MB</translation>
     </message>
 </context>
 <context>
@@ -233,7 +238,7 @@
 <context>
     <name>SongDownloader</name>
     <message>
-        <location filename="../src/SongDownloader.cpp" line="10"/>
+        <location filename="../src/SongDownloader.cpp" line="16"/>
         <source>&amp;DownloadSound</source>
         <translation type="unfinished">URL Audio Downloader</translation>
     </message>
@@ -242,19 +247,24 @@
         <translation type="obsolete">URL Address</translation>
     </message>
     <message>
-        <location filename="../src/SongDownloader.cpp" line="16"/>
+        <location filename="../src/SongDownloader.cpp" line="22"/>
         <source>&amp;DownloadSoundPlaceholder</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">URL Address...</translation>
     </message>
     <message>
-        <location filename="../src/SongDownloader.cpp" line="21"/>
+        <location filename="../src/SongDownloader.cpp" line="27"/>
         <source>&amp;DownloadSoundStart</source>
         <translation type="unfinished">Begin</translation>
     </message>
     <message>
-        <location filename="../src/SongDownloader.cpp" line="24"/>
+        <location filename="../src/SongDownloader.cpp" line="30"/>
         <source>&amp;DownloadSoundCancel</source>
         <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+        <location filename="../src/SongDownloader.cpp" line="79"/>
+        <source>&amp;SongDlIndicator</source>
+        <translation type="unfinished">Downloading: %1MB</translation>
     </message>
 </context>
 </TS>

@@ -30,10 +30,17 @@ namespace Kalorite {
         cancelButton = new QPushButton(tr("&DownloadSoundCancel"), frame);
         buttonLayout->addWidget(cancelButton);
 
+        cancelButton->hide();
+
         layout->addLayout(buttonLayout);
 
         downloadProgress = new QProgressBar(frame);
+        downloadProgress->setTextVisible(false);
         layout->addWidget(downloadProgress);
+
+        downloadStatus = new QLabel(frame);
+        layout->addWidget(downloadStatus);
+        downloadStatus->hide();
 
         connect(downloadButton, &QPushButton::clicked, this, &SongDownloader::onDownloadButtonClicked);
         connect(downloadProgress, &QProgressBar::valueChanged, this, &SongDownloader::onDownloadProgressChanged);
@@ -46,10 +53,13 @@ namespace Kalorite {
             return;
         }
 
-        downloadButton->setEnabled(false);
-        cancelButton->setEnabled(true);
+        downloadButton->hide();
+        cancelButton->show();
+
         downloadProgress->setRange(0, 100);
         downloadProgress->setValue(0);
+
+        downloadStatus->show();
 
         QString downloadPath = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
         QString fileName = downloadPath + "/" + url.fileName();
@@ -65,8 +75,12 @@ namespace Kalorite {
 
         connect(currentReply, &QNetworkReply::downloadProgress, this, [this](qint64 received, qint64 total) {
             if (total > 0) {
+                downloadProgress->setRange(0, 100);
                 downloadProgress->setValue(static_cast<int>((received * 100) / total));
+            } else {
+                downloadProgress->setRange(0, 0);
             }
+            downloadStatus->setText(tr("&SongDlIndicator").arg(received / (1024 * 1024)));
         });
 
         connect(currentReply, &QNetworkReply::readyRead, this, [this]() {
@@ -80,19 +94,34 @@ namespace Kalorite {
 
     void SongDownloader::onDownloadFinished() {
         file->close();
-        downloadButton->setEnabled(true);
+        downloadButton->show();
+        cancelButton->hide();
         currentReply->deleteLater();
         currentReply = nullptr;
+        downloadProgress->setValue(0);
+        downloadStatus->setText("");
+        downloadStatus->hide();
         urlInput->setText(QString::fromStdString(""));
 
-        if (parent) {
-            parent->soundList->addItem(file->fileName());
+        let fileName = file->fileName();
+
+        if (parent && !containsItem(parent->soundList, fileName)) {
+            parent->soundList->addItem(fileName);
         }
 
         frame->hide();
     }
 
     void SongDownloader::onCancelButtonClicked() {
+        currentReply->abort();
+
+        let fileName = file->fileName();
+
+        if (parent && containsItem(parent->soundList, fileName)) {
+           delete parent->soundList->takeItem(parent->soundList->row(parent->soundList->findItems(fileName, Qt::MatchExactly).first()));
+        }
+
+        file->remove();
         frame->hide();
     }
 
