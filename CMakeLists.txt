@@ -11,13 +11,21 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(ECM 1.0 REQUIRED NO_MODULE)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ECM_MODULE_PATH})
-find_package(KF6I18n NO_MODULE REQUIRED)
-find_package(KF6WidgetsAddons REQUIRED)
 
-find_package(KF6 REQUIRED COMPONENTS CoreAddons WidgetsAddons)
-find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools Multimedia DBus)
+if(NOT APPLE AND UNIX)
+    find_package(ECM 1.0 REQUIRED NO_MODULE)
+    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ECM_MODULE_PATH})
+
+
+    find_package(KF6 REQUIRED COMPONENTS CoreAddons WidgetsAddons)
+    find_package(KF6I18n NO_MODULE REQUIRED)
+    find_package(KF6WidgetsAddons REQUIRED)
+    find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools Multimedia DBus)
+
+
+else()
+    find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools Multimedia)
+endif()
 
 add_subdirectory(external/json)
 
@@ -51,14 +59,23 @@ qt_add_translations(kalorite
 
 target_include_directories(kalorite PRIVATE include/)
 
-target_link_libraries(kalorite PRIVATE
-    Qt6::Widgets
-    Qt6::Multimedia
-    KF6::CoreAddons
-    KF6::I18n
-    KF6::WidgetsAddons
-    Qt6::DBus
-    nlohmann_json::nlohmann_json)
+
+if (NOT APPLE)
+    target_link_libraries(kalorite PRIVATE
+        Qt6::Widgets
+        Qt6::Multimedia
+        KF6::CoreAddons
+        KF6::I18n
+        KF6::WidgetsAddons
+        Qt6::DBus
+        nlohmann_json::nlohmann_json)
+else()
+    target_link_libraries(kalorite PRIVATE
+        Qt6::Widgets
+        Qt6::Multimedia
+        nlohmann_json::nlohmann_json)
+endif()
+
 
 install(TARGETS kalorite
     DESTINATION bin

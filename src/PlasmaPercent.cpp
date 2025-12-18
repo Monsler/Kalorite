@@ -1,13 +1,17 @@
 #include "PlasmaPercent.hpp"
+
+#if defined(Q_OS_LINUX)
 #include <qcontainerfwd.h>
 #include <qdbusmessage.h>
 #include <qdbusconnection.h>
+#endif
 
 #define APPLICATION_ID "io.github.monsler.Kalorite"
 
 namespace Kalorite
 {
     void PlasmaPercent::emitPercent(const int percent) {
+#if defined(Q_OS_LINUX)
         double progressValue = percent / 100.0;
 
         QVariantMap properties;
@@ -24,5 +28,6 @@ namespace Kalorite
         message << properties;
 
         QDBusConnection::sessionBus().send(message);
+#endif
     }
 } // namespace Kalorite
