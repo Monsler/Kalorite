@@ -34,13 +34,13 @@
   </screenshots>
 
   <releases>
-    <release version="2.0.0" date="2025-12-18">
+    <release version="2.0.1" date="2025-12-19">
     <description>
       <p>Thanks everyone for using Kalorite! This update includes:</p>
       <ul>
-        <li>Rehauled mixer code (no more spaghetti code</li>
-        <li>Track downloading from url support</li>
-        <li>Playback now supports percent displaying in taskbar on KDE Plasma</li>
+        <li>Fix of progress bar in sound downloader</li>
+        <li>Fix of sound downloader cancel button</li>
+        <li>Fix of memory leak in mixer</li>
       </ul>
     </description>
     </release>

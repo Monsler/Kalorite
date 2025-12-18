@@ -94,13 +94,17 @@ namespace Kalorite {
 
     void SongDownloader::onDownloadFinished() {
         file->close();
+
         downloadButton->show();
         cancelButton->hide();
+
         currentReply->deleteLater();
         currentReply = nullptr;
         downloadProgress->setValue(0);
+
         downloadStatus->setText("");
         downloadStatus->hide();
+
         urlInput->setText(QString::fromStdString(""));
 
         let fileName = file->fileName();
