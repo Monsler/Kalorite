@@ -1,0 +1,9 @@
+[package]
+name = "kalorite"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+gettext-rs = "0.7.7"
+gtk4 = "0.10.3"
+libadwaita = {version="0.8.1", features=["v1_8"]}

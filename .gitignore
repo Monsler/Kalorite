@@ -1,5 +1,1 @@
-build/
-.vscode/
-.cache/
-build-dir/
-repo/
+target/
