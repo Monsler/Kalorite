@@ -1,12 +1,15 @@
 use gettextrs::gettext;
+use gtk4::FileDialog;
+use gtk4::FileFilter;
+use gtk4::SpinButton;
 use gtk4::gio::*;
 use gtk4::glib;
-use gtk4::glib::clone;
 use gtk4::prelude::*;
 use libadwaita::ActionRow;
 use libadwaita::HeaderBar;
 use libadwaita::StatusPage;
 use libadwaita::ToolbarView;
+use libadwaita::prelude::ActionRowExt;
 use libadwaita::prelude::AdwApplicationWindowExt;
 use libadwaita::{Application, ApplicationWindow};
 
@@ -26,7 +29,7 @@ impl MainWindow {
     }
 
     fn build_ui(application: &Application) {
-        let mut player = Rc::new(RefCell::new(KPlayer::new()));
+        let player = Rc::new(RefCell::new(KPlayer::new()));
 
         let window = ApplicationWindow::builder()
             .title("Kalorite")
@@ -48,16 +51,15 @@ impl MainWindow {
             .build();
 
         let kalo_menu = Menu::new();
-        kalo_menu.append(Some(&gettext("AddSong")), Some("add_song"));
+        kalo_menu.append(Some(&gettext("AddSong")), Some("win.add_song"));
         kalo_menu.append(Some(&gettext("Exit")), Some("win.exit_app"));
 
         let exit_action = ActionEntry::builder("exit_app")
             .activate(|window: &ApplicationWindow, _, _| {
+                println!("Exit action triggered");
                 window.close();
             })
             .build();
-
-        window.add_action_entries([exit_action]);
 
         let menu = gtk4::MenuButton::builder()
             .icon_name("open-menu-symbolic")
@@ -93,16 +95,6 @@ impl MainWindow {
             .icon_name("media-playback-start")
             .build();
 
-        button_play.connect_clicked(move |button| {
-            if !player.borrow().is_playing() {
-                button.set_icon_name("media-playback-pause");
-                player.borrow_mut().play();
-            } else {
-                button.set_icon_name("media-playback-start");
-                player.borrow_mut().pause();
-            }
-        });
-
         let adjustment = gtk4::Adjustment::new(0.0, 0.0, 100.0, 1.0, 1.0, 0.0);
 
         let slider_pos = gtk4::Scale::builder()
@@ -115,11 +107,22 @@ impl MainWindow {
         let label_time = gtk4::Label::new(Some("00:00:00 / 00:00:00"));
         label_time.set_margin_end(5);
 
+        let spin_volume = SpinButton::builder()
+            .orientation(gtk4::Orientation::Horizontal)
+            .climb_rate(1.0)
+            .digits(0)
+            .build();
+
+        spin_volume.set_numeric(true);
+        spin_volume.set_range(0.0, 150.0);
+        spin_volume.set_snap_to_ticks(true);
+
         play_bar.append(&button_previous);
         play_bar.append(&button_play);
         play_bar.append(&button_next);
         play_bar.append(&slider_pos);
         play_bar.append(&label_time);
+        play_bar.append(&spin_volume);
 
         let status_playlist_empty = StatusPage::builder()
             .icon_name("audio-x-generic-symbolic")
@@ -133,39 +136,112 @@ impl MainWindow {
             .margin_end(10)
             .build();
 
-        let spacer = gtk4::Box::builder()
+        let scroll_menu = gtk4::ScrolledWindow::builder()
+            .child(&list_songs)
             .vexpand(true)
-            .orientation(gtk4::Orientation::Vertical)
+            .hscrollbar_policy(gtk4::PolicyType::Never)
+            .vscrollbar_policy(gtk4::PolicyType::Automatic)
             .build();
 
-        let action = ActionRow::builder()
-            .title("Kalorite in rust")
-            .subtitle("/home/monsler/kalorite/in/rust")
-            .build();
-
-        let action_2 = ActionRow::builder()
-            .title("Kalorite in rust")
-            .subtitle("/home/monsler/kalorite/in/rust")
-            .build();
-
-        list_songs.append(&action);
-        list_songs.append(&action_2);
-
-        main_layout.append(&list_songs);
-        main_layout.append(&spacer);
+        main_layout.append(&scroll_menu);
         main_layout.append(&play_bar);
 
         stack.add_named(&main_layout, Some("list-songs"));
         stack.add_named(&status_playlist_empty, Some("playlist-empty"));
 
-        stack.set_visible_child_name("list-songs");
+        stack.set_visible_child_name("playlist-empty");
 
         player_box.append(&stack);
+
+        let add_song_action = gtk4::gio::SimpleAction::new("add_song", None);
+
+        add_song_action.connect_activate(move |_, _| {
+            println!("Add song action triggered");
+            let filter = FileFilter::new();
+            filter.set_name(Some(&"Audio"));
+            filter.add_mime_type("audio/*");
+
+            let filters = gtk4::gio::ListStore::new::<FileFilter>();
+            filters.append(&filter);
+
+            let dialog = FileDialog::builder()
+                .title(&gettext("AddSong"))
+                .filters(&filters)
+                .build();
+
+            dialog.open(
+                Some(&window),
+                gtk4::gio::Cancellable::NONE,
+                glib::clone!(
+                    #[weak]
+                    stack,
+                    #[weak]
+                    player,
+                    #[weak]
+                    list_songs,
+                    move |result| {
+                        match result {
+                            Ok(file) => {
+                                let file_pathbuf = file.path().unwrap();
+
+                                let mut audio_player = player.borrow_mut();
+
+                                let action_row = audio_player.load_track(&file_pathbuf);
+
+                                stack.set_visible_child_name("list-songs");
+
+                                if let Some(action) = action_row {
+                                    list_songs.append(action);
+
+                                    let tracks = audio_player.tracks();
+
+                                    audio_player.select(tracks - 1);
+                                }
+                            }
+                            Err(err) => {}
+                        }
+                    }
+                ),
+            );
+        });
+
+        window.add_action(&add_song_action);
+
+        window.add_action_entries([exit_action]);
+
+        list_songs.connect_row_selected(glib::clone!(
+            #[weak]
+            player,
+            move |_, row| {
+                let mut player = player.borrow_mut();
+
+                if let Some(row) = row {
+                    let row_action = row.downcast_ref::<ActionRow>().unwrap();
+                    player.select(row_action.index());
+                }
+            }
+        ));
+
+        button_play.connect_clicked(glib::clone!(
+            #[weak]
+            player,
+            move |button| {
+                let mut player = player.borrow_mut();
+                if !player.is_playing() {
+                    button.set_icon_name("media-playback-pause");
+                    player.play();
+                } else {
+                    button.set_icon_name("media-playback-start");
+                    player.pause();
+                }
+            }
+        ));
 
         toolbar.set_content(Some(&player_box));
 
         toolbar.add_top_bar(&header);
         window.set_content(Some(&toolbar));
+
         window.present();
     }
 
@@ -173,6 +249,9 @@ impl MainWindow {
         let application = Application::builder().application_id(&self.app_id).build();
 
         application.connect_activate(move |app| Self::build_ui(app));
+
+        application.set_accels_for_action("win.exit_app", &["<Control>x"]);
+        application.set_accels_for_action("win.add_song", &["<Control>o"]);
 
         application.run()
     }
