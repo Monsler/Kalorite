@@ -1,0 +1,17 @@
+[package]
+name = "kalorite"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = [
+    "crates/audio-engine",
+    "crates/logger",
+    "crates/audio-backend-rodio",
+    "crates/ui"
+]
+
+
+[dependencies]
+logger = {path = 'crates/logger'}
+ui = {path = 'crates/ui'}

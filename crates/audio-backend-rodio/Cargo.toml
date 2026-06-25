@@ -1,0 +1,9 @@
+[package]
+name = "audio-backend-rodio"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+audio-engine = {path = '../audio-engine'}
+logger = {path = "../logger"}
+rodio = "0.22.2"
