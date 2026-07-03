@@ -121,6 +121,18 @@ Callbacks run on the GUI thread, so they may freely use the rest of the
 somewhere shared with the sandbox (e.g. `~/Downloads`, granted by
 `--filesystem=xdg-download`).
 
+**Flatpak note:** running host tools requires `flatpak-spawn --host`, which
+needs the `org.freedesktop.Flatpak` talk-name. Flathub forbids shipping that
+permission, so Kalorite does **not** request it by default. A user who wants a
+plugin to reach host tools must opt in themselves:
+
+```sh
+flatpak override --user \
+  --talk-name=org.freedesktop.Flatpak io.github.monsler.Kalorite
+```
+
+Without it, `run`/`spawn` still work but execute *inside* the sandbox.
+
 ### `kalorite.log`
 `info(msg)`, `warn(msg)`, `error(msg)` — goes to the application log.
 

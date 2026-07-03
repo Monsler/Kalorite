@@ -233,11 +233,16 @@ local function with_ytdlp(cb, id)
 
     if IN_FLATPAK then
         kalorite.ui.error(
-            "yt-dlp was not found.\n\n" ..
+            "yt-dlp could not be reached.\n\n" ..
             "Kalorite runs in a Flatpak sandbox and uses your host's yt-dlp " ..
-            "and ffmpeg (nothing is bundled). Install them on the host, e.g.:\n" ..
-            "  sudo <your-package-manager> install yt-dlp ffmpeg\n\n" ..
-            "then try again.")
+            "and ffmpeg (nothing is bundled). Two steps:\n\n" ..
+            "1) Install them on the host:\n" ..
+            "   sudo <your-package-manager> install yt-dlp ffmpeg\n\n" ..
+            "2) Allow this app to call host tools (not granted by default, as " ..
+            "Flathub forbids it):\n" ..
+            "   flatpak override --user \\\n" ..
+            "     --talk-name=org.freedesktop.Flatpak io.github.monsler.Kalorite\n\n" ..
+            "then restart Kalorite and try again.")
         return
     end
 

@@ -13,8 +13,7 @@
     "--socket=pulseaudio",
     "--talk-name=com.canonical.Unity",
     "--device=dri",
-    "--filesystem=xdg-download",
-    "--talk-name=org.freedesktop.Flatpak"
+    "--filesystem=xdg-download"
   ],
   "modules": [
     {
@@ -24,7 +23,8 @@
         {
           "type": "git",
           "url": "https://github.com/Monsler/Kalorite",
-          "tag": "v3.0.1"
+          "tag": "v3.0.1",
+          "commit": "91c0b0181fa8433bc1c20758f4d4fc9dc24b788e"
         }
       ],
       "config-opts": ["-DCMAKE_BUILD_TYPE=Release"]
