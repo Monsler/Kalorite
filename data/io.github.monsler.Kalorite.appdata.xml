@@ -34,15 +34,15 @@
   </screenshots>
 
   <releases>
-    <release version="3.0.2" date="2026-07-03">
+    <release version="3.1.0" date="2026-07-03">
     <description>
-      <p>Thanks everyone for using Kalorite! This is the biggest update of our app yet:</p>
+      <p>Thanks everyone for using Kalorite! This update includes:</p>
       <ul>
-        <li>Advanced luajit plugin system</li>
-        <li>Audio visualizing</li>
-        <li>Playlist &amp; overall application look rehaul</li>
-        <li>Migration to miniaudio engine backend</li>
-        <li>Right click on visualizator to open a context menu with audio bus selection, crossfading, bit perfect audio delivery, smart volume control and double buffering.</li>
+        <li>Song downloading dialog fix</li>
+        <li>Pattern visualization with 11 different modes</li>
+        <li>AudioCD Support</li>
+        <li>Fix of options presented in right-click context menu</li>
+        <li>Something cool</li>
       </ul>
       <p>Report any found bugs to GitHub.</p>
     </description>
