@@ -4,102 +4,229 @@
 <context>
     <name>Kalorite::MainWindow</name>
     <message>
+        <source>&amp;Help</source>
+        <translation>&amp;Справка</translation>
+    </message>
+    <message>
+        <source>&amp;About</source>
+        <translation>&amp;О программе</translation>
+    </message>
+    <message>
+        <source>About Kalorite</source>
+        <translation>О программе Kalorite</translation>
+    </message>
+    <message>
+        <source>&lt;h2 style='margin-bottom:2px'&gt;Kalorite&lt;/h2&gt;&lt;p style='color:gray;margin-top:0'&gt;Version %1&lt;/p&gt;&lt;p&gt;Kalorite is a lightweight audio player. It supports all modern codecs and have simple and elegant design.&lt;/p&gt;&lt;p&gt;by monsler&lt;br&gt;&lt;a href='https://github.com/Monsler/Kalorite'&gt;github.com/Monsler/Kalorite&lt;/a&gt;&lt;/p&gt;</source>
+        <translation>&lt;h2 style='margin-bottom:2px'&gt;Kalorite&lt;/h2&gt;&lt;p style='color:gray;margin-top:0'&gt;Версия %1&lt;/p&gt;&lt;p&gt;Kalorite — лёгкий аудиоплеер. Поддерживает все современные кодеки, простой и элегантный дизайн.&lt;/p&gt;&lt;p&gt;автор: monsler&lt;br&gt;&lt;a href='https://github.com/Monsler/Kalorite'&gt;github.com/Monsler/Kalorite&lt;/a&gt;&lt;/p&gt;</translation>
+    </message>
+    <message>
         <source>File</source>
         <translation type="obsolete">Файл</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="35"/>
+        <location filename="../src/MainWindow.cpp" line="39"/>
         <source>&amp;File</source>
-        <translation type="unfinished">&amp;Файл</translation>
+        <translation>&amp;Файл</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="37"/>
+        <location filename="../src/MainWindow.cpp" line="41"/>
         <source>&amp;OpenSong</source>
         <translation>&amp;Добавить трек</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="40"/>
-        <location filename="../src/MainWindow.cpp" line="145"/>
+        <location filename="../src/MainWindow.cpp" line="44"/>
+        <location filename="../src/MainWindow.cpp" line="223"/>
         <source>&amp;SavePlaylistAs</source>
-        <translation type="unfinished">&amp;Сохранить плейлист как...</translation>
+        <translation>&amp;Сохранить плейлист как...</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="43"/>
-        <location filename="../src/MainWindow.cpp" line="164"/>
+        <location filename="../src/MainWindow.cpp" line="47"/>
+        <location filename="../src/MainWindow.cpp" line="242"/>
         <source>&amp;LoadPlaylistFrom</source>
-        <translation type="unfinished">Загрузить плейлист...</translation>
+        <translation>Загрузить плейлист...</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="46"/>
+        <location filename="../src/MainWindow.cpp" line="50"/>
         <source>&amp;DownloadSound</source>
-        <translation type="unfinished">Загрузить аудио по URL</translation>
+        <translation>Загрузить аудио по URL</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="55"/>
+        <source>&amp;AddPlugin</source>
+        <translation>Добавить плагин</translation>
+    </message>
+    <message>
+        <source>&amp;Plugins</source>
+        <translation>&amp;Плагины</translation>
+    </message>
+    <message>
+        <source>Lua Plugins (*.lua)</source>
+        <translation>Плагины Lua (*.lua)</translation>
+    </message>
+    <message>
+        <location filename="../src/MainWindow.cpp" line="59"/>
         <source>&amp;Exit</source>
-        <translation type="unfinished">&amp;Выход</translation>
+        <translation>&amp;Выход</translation>
     </message>
     <message>
         <location filename="../src/MainWindow.cpp" line="89"/>
+        <source>&amp;View</source>
+        <translation>&amp;Вид</translation>
+    </message>
+    <message>
+        <location filename="../src/MainWindow.cpp" line="92"/>
+        <source>Retro Display Mode</source>
+        <translation>Ретро режим дисплея</translation>
+    </message>
+    <message>
+        <location filename="../src/MainWindow.cpp" line="98"/>
+        <source>Modern Display Mode</source>
+        <translation>Современный режим дисплея</translation>
+    </message>
+    <message>
+        <location filename="../src/MainWindow.cpp" line="135"/>
         <source>PlayTooltip</source>
-        <translation type="unfinished">Начинает/Останавливает проигрывание текущего аудио</translation>
+        <translation>Начинает/Останавливает проигрывание текущего аудио</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="103"/>
+        <location filename="../src/MainWindow.cpp" line="150"/>
         <source>SkipBackward</source>
-        <translation type="unfinished">Предыдущий трек</translation>
+        <translation>Предыдущий трек</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="109"/>
+        <location filename="../src/MainWindow.cpp" line="156"/>
         <source>SkipForward</source>
-        <translation type="unfinished">Следующий трек</translation>
+        <translation>Следующий трек</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="145"/>
-        <location filename="../src/MainWindow.cpp" line="164"/>
+        <location filename="../src/MainWindow.cpp" line="177"/>
+        <location filename="../src/MainWindow.cpp" line="207"/>
+        <source>Playlist</source>
+        <translation>Плейлист</translation>
+    </message>
+    <message>
+        <location filename="../src/MainWindow.cpp" line="187"/>
+        <source>Add file to playlist</source>
+        <translation>Добавить файл в плейлист</translation>
+    </message>
+    <message>
+        <location filename="../src/MainWindow.cpp" line="192"/>
+        <source>Add folder to playlist</source>
+        <translation>Добавить папку в плейлист</translation>
+    </message>
+    <message>
+        <location filename="../src/MainWindow.cpp" line="223"/>
+        <location filename="../src/MainWindow.cpp" line="242"/>
         <source>PlaylistFileFilters</source>
-        <translation type="unfinished">JSON Плейлист (*.json)</translation>
+        <translation>JSON Плейлист (*.json)</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="248"/>
+        <location filename="../src/MainWindow.cpp" line="382"/>
+        <source>Add Folder</source>
+        <translation>Добавить папку</translation>
+    </message>
+    <message>
+        <location filename="../src/MainWindow.cpp" line="423"/>
         <source>RemoveFromList</source>
-        <translation type="unfinished">Удалить трек из списка</translation>
+        <translation>Удалить трек из списка</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="260"/>
+        <location filename="../src/MainWindow.cpp" line="411"/>
         <source>OpenSound</source>
-        <translation type="unfinished">Открыть аудио</translation>
+        <translation>Открыть аудио</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="260"/>
+        <location filename="../src/MainWindow.cpp" line="411"/>
         <source>FileFilters</source>
-        <translation type="unfinished">Аудиофайлы (*.mp3 *.flac *.wav *.ogg)</translation>
+        <translation>Аудиофайлы (*.mp3 *.flac *.wav *.ogg)</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="280"/>
         <source>ErrorAlreadyHasElementInList</source>
-        <translation type="unfinished">Такой трек уже есть в списке</translation>
+        <translation type="vanished">Такой трек уже есть в списке</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="343"/>
+        <location filename="../src/MainWindow.cpp" line="494"/>
         <source>TooltipRepeatShuffle</source>
-        <translation type="unfinished">Режим повторения: Перемешка</translation>
+        <translation>Режим повторения: Перемешка</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="115"/>
-        <location filename="../src/MainWindow.cpp" line="335"/>
+        <location filename="../src/MainWindow.cpp" line="162"/>
+        <location filename="../src/MainWindow.cpp" line="486"/>
         <source>TooltipNoRepeat</source>
-        <translation type="unfinished">Режим повторения: Без повтора</translation>
+        <translation>Режим повторения: Без повтора</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="338"/>
+        <location filename="../src/MainWindow.cpp" line="489"/>
         <source>TooltipRepeatSingleTrack</source>
-        <translation type="unfinished">Режим повторения: Текущий трек</translation>
+        <translation>Режим повторения: Текущий трек</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="340"/>
+        <location filename="../src/MainWindow.cpp" line="491"/>
         <source>TooltipRepeatList</source>
-        <translation type="unfinished">Режим повторения: Весь список треков</translation>
+        <translation>Режим повторения: Весь список треков</translation>
+    </message>
+    <message>
+        <source>Equalizer</source>
+        <translation>Эквалайзер</translation>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation>Включено</translation>
+    </message>
+    <message>
+        <source>Audio Device</source>
+        <translation>Аудиоустройство</translation>
+    </message>
+    <message>
+        <source>Enable Crossfade</source>
+        <translation>Включить кроссфейд</translation>
+    </message>
+    <message>
+        <source>Bit Perfect (Smart Gain)</source>
+        <translation>Bit perfect (smart gain)</translation>
+    </message>
+    <message>
+        <source>Reset Equalizer</source>
+        <translation>Сбросить эквалайзер</translation>
+    </message>
+    <message>
+        <source>Presets:</source>
+        <translation>Пресеты:</translation>
+    </message>
+    <message>
+        <source>Flat</source>
+        <translation>Плоский</translation>
+    </message>
+    <message>
+        <source>Rock</source>
+        <translation>Рок</translation>
+    </message>
+    <message>
+        <source>Pop</source>
+        <translation>Поп</translation>
+    </message>
+    <message>
+        <source>Classical</source>
+        <translation>Классика</translation>
+    </message>
+    <message>
+        <location filename="../src/MainWindow.cpp" line="841"/>
+        <source>Enable Gapless Playback</source>
+        <translation>Включить безразрывное воспроизведение</translation>
+    </message>
+    <message>
+        <location filename="../src/MainWindow.cpp" line="849"/>
+        <source>Enable Double Buffering</source>
+        <translation>Включить двойную буферизацию</translation>
+    </message>
+    <message>
+        <location filename="../src/MainWindow.cpp" line="857"/>
+        <source>Enable Smart Gain</source>
+        <translation>Включить умную регулировку громкости</translation>
+    </message>
+    <message>
+        <location filename="../src/MainWindow.cpp" line="866"/>
+        <source>Enable Bit Perfect</source>
+        <translation>Включить Bit Perfect</translation>
     </message>
 </context>
 <context>
@@ -107,17 +234,17 @@
     <message>
         <location filename="../src/SongDownloader.cpp" line="16"/>
         <source>&amp;DownloadSound</source>
-        <translation type="unfinished">Загрузить аудио по URL</translation>
+        <translation>Загрузить аудио по URL</translation>
     </message>
     <message>
         <location filename="../src/SongDownloader.cpp" line="22"/>
         <source>&amp;DownloadSoundPlaceholder</source>
-        <translation type="unfinished">URL Адрес...</translation>
+        <translation>URL Адрес...</translation>
     </message>
     <message>
         <location filename="../src/SongDownloader.cpp" line="27"/>
         <source>&amp;DownloadSoundStart</source>
-        <translation type="unfinished">Начать</translation>
+        <translation>Начать</translation>
     </message>
     <message>
         <location filename="../src/SongDownloader.cpp" line="30"/>
@@ -125,9 +252,34 @@
         <translation>Отмена</translation>
     </message>
     <message>
-        <location filename="../src/SongDownloader.cpp" line="79"/>
+        <location filename="../src/SongDownloader.cpp" line="83"/>
         <source>&amp;SongDlIndicator</source>
-        <translation type="unfinished">Загрузка: %1МБ</translation>
+        <translation>Загрузка: %1МБ</translation>
+    </message>
+    <message>
+        <source>&amp;DownloadSoundInvalidUrl</source>
+        <translation>Некорректный URL</translation>
+    </message>
+    <message>
+        <source>&amp;DownloadSoundWriteError</source>
+        <translation>Не удалось записать в папку загрузок</translation>
+    </message>
+    <message>
+        <source>&amp;DownloadSoundFailed</source>
+        <translation>Ошибка загрузки</translation>
+    </message>
+</context>
+<context>
+    <name>Kalorite::WinampDisplay</name>
+    <message>
+        <location filename="../src/WinampDisplay.cpp" line="148"/>
+        <source>Retro Mode</source>
+        <translation>Ретро режим</translation>
+    </message>
+    <message>
+        <location filename="../src/WinampDisplay.cpp" line="152"/>
+        <source>Modern Mode</source>
+        <translation>Современный режим</translation>
     </message>
 </context>
 <context>
@@ -141,130 +293,219 @@
         <translation type="obsolete">Выход</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="35"/>
         <source>&amp;File</source>
-        <translation type="unfinished">&amp;Файл</translation>
+        <translation type="vanished">&amp;Файл</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="37"/>
         <source>&amp;OpenSong</source>
-        <translation type="unfinished">&amp;Открыть</translation>
+        <translation type="vanished">&amp;Открыть</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="40"/>
-        <location filename="../src/MainWindow.cpp" line="145"/>
         <source>&amp;SavePlaylistAs</source>
-        <translation type="unfinished">&amp;Сохранить плейлист как...</translation>
+        <translation type="vanished">&amp;Сохранить плейлист как...</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="43"/>
-        <location filename="../src/MainWindow.cpp" line="164"/>
         <source>&amp;LoadPlaylistFrom</source>
-        <translation type="unfinished">Открыть плейлист из...</translation>
+        <translation type="vanished">Открыть плейлист из...</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="46"/>
         <source>&amp;DownloadSound</source>
-        <translation type="unfinished">Загрузить аудио по URL</translation>
+        <translation type="vanished">Загрузить аудио по URL</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="55"/>
         <source>&amp;Exit</source>
-        <translation type="unfinished">&amp;Выход</translation>
+        <translation type="vanished">&amp;Выход</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="89"/>
         <source>PlayTooltip</source>
-        <translation type="unfinished">Начинает/Останавливает проигрывание текущего аудио</translation>
+        <translation type="vanished">Начинает/Останавливает проигрывание текущего аудио</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="103"/>
         <source>SkipBackward</source>
-        <translation type="unfinished">Предыдущий трек</translation>
+        <translation type="vanished">Предыдущий трек</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="109"/>
         <source>SkipForward</source>
-        <translation type="unfinished">Следующий трек</translation>
+        <translation type="vanished">Следующий трек</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="145"/>
-        <location filename="../src/MainWindow.cpp" line="164"/>
         <source>PlaylistFileFilters</source>
-        <translation type="unfinished">JSON Плейлист (*.json)</translation>
+        <translation type="vanished">JSON Плейлист (*.json)</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="248"/>
         <source>RemoveFromList</source>
-        <translation type="unfinished">Удалить трек из списка</translation>
+        <translation type="vanished">Удалить трек из списка</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="260"/>
         <source>OpenSound</source>
-        <translation type="unfinished">Открыть аудио</translation>
+        <translation type="vanished">Открыть аудио</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="260"/>
         <source>FileFilters</source>
-        <translation type="unfinished">Аудиофайлы (*.mp3 *.flac *.wav *.ogg)</translation>
+        <translation type="vanished">Аудиофайлы (*.mp3 *.flac *.wav *.ogg)</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="280"/>
         <source>ErrorAlreadyHasElementInList</source>
-        <translation type="unfinished">Такой трек уже есть в списке</translation>
+        <translation type="vanished">Такой трек уже есть в списке</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="343"/>
         <source>TooltipRepeatShuffle</source>
-        <translation type="unfinished">Режим повторения: Перемешка</translation>
+        <translation type="vanished">Режим повторения: Перемешка</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="115"/>
-        <location filename="../src/MainWindow.cpp" line="335"/>
         <source>TooltipNoRepeat</source>
-        <translation type="unfinished">Режим повторения: Без повтора</translation>
+        <translation type="vanished">Режим повторения: Без повтора</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="338"/>
         <source>TooltipRepeatSingleTrack</source>
-        <translation type="unfinished">Режим повторения: Текущий трек</translation>
+        <translation type="vanished">Режим повторения: Текущий трек</translation>
     </message>
     <message>
-        <location filename="../src/MainWindow.cpp" line="340"/>
         <source>TooltipRepeatList</source>
-        <translation type="unfinished">Режим повторения: Весь список треков</translation>
+        <translation type="vanished">Режим повторения: Весь список треков</translation>
+    </message>
+    <message>
+        <source>&amp;View</source>
+        <translation type="vanished">&amp;Вид</translation>
+    </message>
+    <message>
+        <source>Retro Display Mode</source>
+        <translation type="vanished">Ретро режим дисплея</translation>
+    </message>
+    <message>
+        <source>Modern Display Mode</source>
+        <translation type="vanished">Современный режим дисплея</translation>
+    </message>
+    <message>
+        <source>Add File</source>
+        <translation type="vanished">Добавить файл</translation>
+    </message>
+    <message>
+        <source>Add Folder</source>
+        <translation type="vanished">Добавить папку</translation>
+    </message>
+    <message>
+        <source>Add file to playlist</source>
+        <translation type="vanished">Добавить файл в плейлист</translation>
+    </message>
+    <message>
+        <source>Add folder to playlist</source>
+        <translation type="vanished">Добавить папку в плейлист</translation>
+    </message>
+    <message>
+        <source>Playlist</source>
+        <translation type="vanished">Плейлист</translation>
     </message>
 </context>
 <context>
     <name>SongDownloader</name>
     <message>
-        <location filename="../src/SongDownloader.cpp" line="16"/>
         <source>&amp;DownloadSound</source>
-        <translation type="unfinished">Загрузить аудио по URL</translation>
+        <translation type="vanished">Загрузить аудио по URL</translation>
     </message>
     <message>
         <source>&amp;DonwloadSoundPlaceholder</source>
         <translation type="obsolete">URL Адрес</translation>
     </message>
     <message>
-        <location filename="../src/SongDownloader.cpp" line="22"/>
         <source>&amp;DownloadSoundPlaceholder</source>
-        <translation type="unfinished">URL Адрес...</translation>
+        <translation type="vanished">URL Адрес...</translation>
     </message>
     <message>
-        <location filename="../src/SongDownloader.cpp" line="27"/>
         <source>&amp;DownloadSoundStart</source>
-        <translation type="unfinished">Начать</translation>
+        <translation type="vanished">Начать</translation>
     </message>
     <message>
-        <location filename="../src/SongDownloader.cpp" line="30"/>
         <source>&amp;DownloadSoundCancel</source>
-        <translation type="unfinished">Отмена</translation>
+        <translation type="vanished">Отмена</translation>
     </message>
     <message>
-        <location filename="../src/SongDownloader.cpp" line="79"/>
         <source>&amp;SongDlIndicator</source>
-        <translation type="unfinished">Загрузка: %1МБ</translation>
+        <translation type="vanished">Загрузка: %1МБ</translation>
+    </message>
+</context>
+<context>
+    <name>WinampDisplay</name>
+    <message>
+        <source>Retro Mode</source>
+        <translation type="obsolete">Ретро режим</translation>
+    </message>
+    <message>
+        <source>Modern Mode</source>
+        <translation type="obsolete">Современный режим</translation>
+    </message>
+</context>
+<context>
+    <name>QObject</name>
+    <message>
+        <source>Click me!</source>
+        <translation>Нажми на меня!</translation>
+    </message>
+    <message>
+        <source>About…</source>
+        <translation>О плагине…</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Удалить</translation>
+    </message>
+    <message>
+        <source>Remove plugin</source>
+        <translation>Удаление плагина</translation>
+    </message>
+    <message>
+        <source>Remove the plugin &quot;%1&quot;? Its file will be deleted.</source>
+        <translation>Удалить плагин «%1»? Его файл будет удалён.</translation>
+    </message>
+    <message>
+        <source>(no plugins installed)</source>
+        <translation>(плагины не установлены)</translation>
+    </message>
+    <message>
+        <source>Action</source>
+        <translation>Действие</translation>
+    </message>
+    <message>
+        <source>Version %1</source>
+        <translation>Версия %1</translation>
+    </message>
+    <message>
+        <source>Author: %1
+</source>
+        <translation>Автор: %1
+</translation>
+    </message>
+    <message>
+        <source>Version: %1</source>
+        <translation>Версия: %1</translation>
+    </message>
+    <message>
+        <source>Add plugin</source>
+        <translation>Добавить плагин</translation>
+    </message>
+    <message>
+        <source>A plugin named &quot;%1&quot; already exists. Overwrite?</source>
+        <translation>Плагин с именем «%1» уже существует. Перезаписать?</translation>
+    </message>
+    <message>
+        <source>Failed to copy the plugin into %1.</source>
+        <translation>Не удалось скопировать плагин в %1.</translation>
+    </message>
+    <message>
+        <source>Plugin script must return a table.</source>
+        <translation>Скрипт плагина должен возвращать таблицу.</translation>
+    </message>
+    <message>
+        <source>Error in plugin &quot;%1&quot;</source>
+        <translation>Ошибка в плагине «%1»</translation>
+    </message>
+    <message>
+        <source>Plugin error</source>
+        <translation>Ошибка плагина</translation>
+    </message>
+    <message>
+        <source>Plugin</source>
+        <translation>Плагин</translation>
     </message>
 </context>
 </TS>

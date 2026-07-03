@@ -14,10 +14,16 @@
 #include <qlistwidget.h>
 #include <qmediaplayer.h>
 #include <qspinbox.h>
+#include <qcheckbox.h>
+#include <qframe.h>
 #include "SongDownloader.hpp"
+#include "WinampDisplay.hpp"
+#include "VolumeSignalWidget.hpp"
 
 namespace Kalorite
 {
+
+    class PluginManager;
 
     bool containsItem(QListWidget *list, const QString& text);
 
@@ -29,11 +35,42 @@ namespace Kalorite
         void setCurrentSong(const std::string path);
         QListWidget* soundList;
 
+        // ---- Plugin API surface -------------------------------------------
+        // These wrap the private transport/playlist logic so the LuaJIT plugin
+        // layer never has to touch internals directly. All are GUI-thread only.
+        Mixer* pluginMixer() { return mixer; }
+
+        void pluginPlay();
+        void pluginPause();
+        void pluginStop();
+        void pluginNext();
+        void pluginPrev();
+        bool pluginIsPlaying() const { return isPlaying; }
+        int  pluginPositionMs();
+        int  pluginDurationMs();
+        void pluginSeekMs(int ms);
+
+        int     pluginPlaylistCount() const;
+        void    pluginPlaylistAdd(const QString& path);
+        void    pluginPlaylistRemove(int index);
+        void    pluginPlaylistClear();
+        QString pluginPlaylistPath(int index) const;
+        QString pluginPlaylistTitle(int index) const;
+        int     pluginCurrentIndex() const;
+        void    pluginPlayIndex(int index);
+
+    signals:
+        // Emitted on the GUI thread; PluginManager fans these out to plugins.
+        void pluginTrackChanged(QString path, int index);
+        void pluginPlaybackStateChanged(QString state); // "playing"/"paused"/"stopped"
+        void pluginTrackFinished(QString path);
+
         private slots:
         void onPlayTriggered();
         void openButtonTriggered();
         void onPlayback();
         void onSkipNext();
+        void onCrossfadeAdvance();
         void onSkipBack();
         void onMediaPlayerStatusChanged(QMediaPlayer::PlaybackState status);
         void playbackSliderPressed();
@@ -45,6 +82,12 @@ namespace Kalorite
         void savePlaylistTriggered();
         void loadPlaylistTriggered();
         void openSoundFileDownloadDialog();
+        void addFolderTriggered();
+        void onDurationChanged(qint64 durationMs);
+        void addSoundFile(const QString& filePath);
+        void onContextMenuWinampDisplay(const QPoint &pos);
+        void openAddPluginDialog();
+        void openAboutDialog();
 
         private:
 
@@ -76,10 +119,20 @@ namespace Kalorite
 
         Mixer* mixer;
         SongDownloader* songDownloader;
+        PluginManager* pluginManager = nullptr;
+        QMenu* pluginsMenu = nullptr;
 
         QTimer* playbackTimer;
 
-        QSpinBox* volumeBox;
+        VolumeSignalWidget* volumeSignal;
+        QWidget* playlistContainer;
+        QPushButton* playlistToggleBtn;
+
+        QPushButton* eqToggleBtn;
+        QWidget* eqContainer;
+        QCheckBox* eqEnabledCheckbox;
+        QFrame* eqSeparator;
+        QList<QSlider*> eqSliders;
 
         std::string currentAudio;
         bool isPlaying = false;
@@ -88,7 +141,11 @@ namespace Kalorite
         int loopType = 0;
         std::vector<int> shuffle;
         int shufflePos = 0;
+        bool m_crossfadeEnabled = false;
+        bool m_bitPerfectEnabled = false;
+        bool m_smartGainEnabled = false;
 
         PlasmaPercent percent;
+        WinampDisplay* winampDisplay;
     };
 } // namespace Kalorite

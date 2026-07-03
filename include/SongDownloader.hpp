@@ -32,8 +32,11 @@ namespace Kalorite {
         void onDownloadFinished();
 
     private:
+        void resetUi();
+
         QWidget* frame;
         QVBoxLayout* layout;
+        QLabel* titleLabel;
         QLabel* downloadStatus;
         QHBoxLayout* buttonLayout;
         QLineEdit* urlInput;

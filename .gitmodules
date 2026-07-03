@@ -1,3 +1,9 @@
 [submodule "external/json"]
 	path = external/json
 	url = https://github.com/nlohmann/json
+[submodule "external/lua"]
+	path = external/lua
+	url = https://github.com/lua/lua
+[submodule "external/luajit"]
+	path = external/luajit
+	url = https://github.com/luajit/luajit

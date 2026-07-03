@@ -4,6 +4,22 @@
 <context>
     <name>Kalorite::MainWindow</name>
     <message>
+        <source>&amp;Help</source>
+        <translation>&amp;Help</translation>
+    </message>
+    <message>
+        <source>&amp;About</source>
+        <translation>&amp;About</translation>
+    </message>
+    <message>
+        <source>About Kalorite</source>
+        <translation>About Kalorite</translation>
+    </message>
+    <message>
+        <source>&lt;h2 style='margin-bottom:2px'&gt;Kalorite&lt;/h2&gt;&lt;p style='color:gray;margin-top:0'&gt;Version %1&lt;/p&gt;&lt;p&gt;Kalorite is a lightweight audio player. It supports all modern codecs and have simple and elegant design.&lt;/p&gt;&lt;p&gt;by monsler&lt;br&gt;&lt;a href='https://github.com/Monsler/Kalorite'&gt;github.com/Monsler/Kalorite&lt;/a&gt;&lt;/p&gt;</source>
+        <translation>&lt;h2 style='margin-bottom:2px'&gt;Kalorite&lt;/h2&gt;&lt;p style='color:gray;margin-top:0'&gt;Version %1&lt;/p&gt;&lt;p&gt;Kalorite is a lightweight audio player. It supports all modern codecs and have simple and elegant design.&lt;/p&gt;&lt;p&gt;by monsler&lt;br&gt;&lt;a href='https://github.com/Monsler/Kalorite'&gt;github.com/Monsler/Kalorite&lt;/a&gt;&lt;/p&gt;</translation>
+    </message>
+    <message>
         <source>File</source>
         <translation type="obsolete">File</translation>
     </message>
@@ -105,6 +121,26 @@
         <source>TooltipRepeatList</source>
         <translation type="unfinished">Repeat mode: Each list track</translation>
     </message>
+    <message>
+        <source>Equalizer</source>
+        <translation type="unfinished">Equalizer</translation>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation type="unfinished">Enabled</translation>
+    </message>
+    <message>
+        <source>Audio Device</source>
+        <translation type="unfinished">Audio Device</translation>
+    </message>
+    <message>
+        <source>Enable Crossfade</source>
+        <translation type="unfinished">Enable Crossfade</translation>
+    </message>
+    <message>
+        <source>Bit Perfect (Smart Gain)</source>
+        <translation type="unfinished">Bit Perfect (Smart Gain)</translation>
+    </message>
 </context>
 <context>
     <name>Kalorite::SongDownloader</name>
@@ -132,6 +168,18 @@
         <location filename="../src/SongDownloader.cpp" line="79"/>
         <source>&amp;SongDlIndicator</source>
         <translation type="unfinished">Downloading: %1MB</translation>
+    </message>
+    <message>
+        <source>&amp;DownloadSoundInvalidUrl</source>
+        <translation type="unfinished">Invalid URL</translation>
+    </message>
+    <message>
+        <source>&amp;DownloadSoundWriteError</source>
+        <translation type="unfinished">Cannot write to Downloads folder</translation>
+    </message>
+    <message>
+        <source>&amp;DownloadSoundFailed</source>
+        <translation type="unfinished">Download failed</translation>
     </message>
 </context>
 <context>
@@ -265,6 +313,94 @@
         <location filename="../src/SongDownloader.cpp" line="79"/>
         <source>&amp;SongDlIndicator</source>
         <translation type="unfinished">Downloading: %1MB</translation>
+    </message>
+</context>
+<context>
+    <name>Kalorite::MainWindow</name>
+    <message>
+        <source>&amp;AddPlugin</source>
+        <translation>Add Plugin</translation>
+    </message>
+    <message>
+        <source>&amp;Plugins</source>
+        <translation>&amp;Plugins</translation>
+    </message>
+    <message>
+        <source>Lua Plugins (*.lua)</source>
+        <translation>Lua Plugins (*.lua)</translation>
+    </message>
+</context>
+<context>
+    <name>QObject</name>
+    <message>
+        <source>Click me!</source>
+        <translation>Click me!</translation>
+    </message>
+    <message>
+        <source>About…</source>
+        <translation>About…</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
+        <source>Remove plugin</source>
+        <translation>Remove plugin</translation>
+    </message>
+    <message>
+        <source>Remove the plugin &quot;%1&quot;? Its file will be deleted.</source>
+        <translation>Remove the plugin &quot;%1&quot;? Its file will be deleted.</translation>
+    </message>
+    <message>
+        <source>(no plugins installed)</source>
+        <translation>(no plugins installed)</translation>
+    </message>
+    <message>
+        <source>Action</source>
+        <translation>Action</translation>
+    </message>
+    <message>
+        <source>Version %1</source>
+        <translation>Version %1</translation>
+    </message>
+    <message>
+        <source>Author: %1
+</source>
+        <translation>Author: %1
+</translation>
+    </message>
+    <message>
+        <source>Version: %1</source>
+        <translation>Version: %1</translation>
+    </message>
+    <message>
+        <source>Add plugin</source>
+        <translation>Add plugin</translation>
+    </message>
+    <message>
+        <source>A plugin named &quot;%1&quot; already exists. Overwrite?</source>
+        <translation>A plugin named &quot;%1&quot; already exists. Overwrite?</translation>
+    </message>
+    <message>
+        <source>Failed to copy the plugin into %1.</source>
+        <translation>Failed to copy the plugin into %1.</translation>
+    </message>
+    <message>
+        <source>Plugin script must return a table.</source>
+        <translation>Plugin script must return a table.</translation>
+    </message>
+    <message>
+        <source>Error in plugin &quot;%1&quot;</source>
+        <translation>Error in plugin &quot;%1&quot;</translation>
+    </message>
+    <message>
+        <source>Plugin error</source>
+        <translation>Plugin error</translation>
+    </message>
+    <message>
+        <source>Plugin</source>
+        <translation>Plugin</translation>
     </message>
 </context>
 </TS>
