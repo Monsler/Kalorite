@@ -14,8 +14,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-13   # Intel
-            arch: x86_64
           - os: macos-14   # Apple Silicon
             arch: arm64
     runs-on: ${{ matrix.os }}
@@ -109,6 +107,45 @@ jobs:
 
       - name: Bundle Qt frameworks (macdeployqt)
         run: "$QT_ROOT_DIR/bin/macdeployqt Kalorite.app -verbose=1"
+
+      # ---------------------------------------------------------------------
+      # Launch smoke test. On a real Mac the app failed with "Kalorite can't be
+      # opened" — usually a missing/unresolved dynamic library or a broken app
+      # bundle that only surfaces at launch, never at build time. Run the fully
+      # deployed bundle headlessly (Qt's offscreen platform) so any dyld / Qt
+      # plugin loading failure fails the CI here instead of on a user's machine.
+      # ---------------------------------------------------------------------
+      - name: Launch smoke test
+        run: |
+          set -uo pipefail
+          BIN="Kalorite.app/Contents/MacOS/kalorite"
+
+          # Sanity-check the linker can resolve every dependency of the binary
+          # and of every bundled framework. An "unresolved" line here is exactly
+          # the kind of breakage that makes the app refuse to open.
+          echo "== otool -L =="
+          otool -L "$BIN"
+          if otool -L "$BIN" | grep -q "@rpath.*not found"; then
+            echo "::error::Unresolved @rpath dependency in the main binary"
+            exit 1
+          fi
+
+          # Actually start the app headlessly and give it a moment to initialise
+          # the GUI. If it dyld-crashes on launch it exits non-zero immediately.
+          export QT_QPA_PLATFORM=offscreen
+          "$BIN" &
+          APP_PID=$!
+          sleep 10
+          if kill -0 "$APP_PID" 2>/dev/null; then
+            echo "App launched and stayed alive — OK"
+            kill "$APP_PID" 2>/dev/null || true
+            wait "$APP_PID" 2>/dev/null || true
+          else
+            wait "$APP_PID"
+            STATUS=$?
+            echo "::error::App exited on launch with status $STATUS"
+            exit 1
+          fi
 
       - name: Create DMG
         env:

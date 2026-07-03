@@ -148,9 +148,7 @@ namespace Kalorite {
         currentReply = nullptr;
 
         if (ok) {
-            if (parent && !containsItem(parent->soundList, fileName)) {
-                parent->soundList->addItem(fileName);
-            }
+            if (parent) parent->addSoundFile(fileName);
             resetUi();
             frame->hide();
         } else {
@@ -169,15 +167,10 @@ namespace Kalorite {
         }
 
         if (file) {
-            let fileName = file->fileName();
             file->close();
             file->remove();
             delete file;
             file = nullptr;
-
-            if (parent && containsItem(parent->soundList, fileName)) {
-               delete parent->soundList->takeItem(parent->soundList->row(parent->soundList->findItems(fileName, Qt::MatchExactly).first()));
-            }
         }
 
         resetUi();

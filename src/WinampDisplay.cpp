@@ -81,7 +81,7 @@ WinampDisplay::WinampDisplay(QWidget* parent)
     m_timerId = startTimer(16);
     
     // Set minimal size
-    setMinimumSize(320, 100);
+    setMinimumSize(385, 100);
 }
 
 void WinampDisplay::setMixer(Mixer* mixer) {
@@ -172,7 +172,7 @@ void WinampDisplay::mousePressEvent(QMouseEvent* event) {
 }
 
 QSize WinampDisplay::sizeHint() const {
-    return QSize(400, 120);
+    return QSize(300, 120);
 }
 
 void WinampDisplay::timerEvent(QTimerEvent* event) {
@@ -338,8 +338,21 @@ void WinampDisplay::drawRetroDisplay(QPainter& painter) {
     int bitrate = computeBitrateKbps();
     QString kbpsStr = bitrate > 0 ? QString::number(bitrate) : "--";
 
-    drawPixelText(painter, "KBPS   KHZ", 195, 12, QColor(20, 32, 20), 1);
-    drawPixelText(painter, QString("%1    %2").arg(kbpsStr).arg(khzStr), 195, 12, QColor(50, 240, 50), 1);
+    // The 5x7 pixel font is fixed-width (6px per glyph). Draw each unit label
+    // right after its number instead of on top of it — previously the bright
+    // value was painted over the dim label at the same position, so the KBPS /
+    // KHZ captions were hidden underneath the digits.
+    const int glyphW = 6;
+    const QColor valueColor(50, 240, 50);
+    const QColor unitColor(20, 120, 20);
+    int x = 195;
+    drawPixelText(painter, kbpsStr, x, 12, valueColor, 1);
+    x += (kbpsStr.length() + 1) * glyphW;      // number + one space
+    drawPixelText(painter, "KBPS", x, 12, unitColor, 1);
+    x += (4 + 1) * glyphW;                      // "KBPS" + one space
+    drawPixelText(painter, khzStr, x, 12, valueColor, 1);
+    x += (khzStr.length() + 1) * glyphW;
+    drawPixelText(painter, "KHZ", x, 12, unitColor, 1);
 
     drawPixelText(painter, "MONO  STEREO", 195, 23, QColor(20, 32, 20), 1);
     if (channels == 1) {
@@ -356,12 +369,14 @@ void WinampDisplay::drawRetroDisplay(QPainter& painter) {
     int visHeight = height() - startY - 15;
 
     int numBands = NUM_BANDS;
-    int barWidth = (visWidth / numBands) - 2;
-    if (barWidth < 2) barWidth = 2;
+    // Use a fractional step so the bars span the full width with no gap left
+    // over on the right edge (integer division alone truncates that space away).
+    const double step = double(visWidth) / numBands;
+    int barWidth = std::max(2, int(step) - 2);
 
     for (int i = 0; i < numBands; ++i) {
         const Band& b = m_bands[i];
-        int bx = startX + i * (barWidth + 2);
+        int bx = startX + int(std::round(i * step));
 
         // Winamp Green to Red color gradient on pixel-by-pixel basis
         int totalSegments = visHeight / 3;
@@ -440,8 +455,9 @@ void WinampDisplay::drawModernDisplay(QPainter& painter) {
     int visWidth = width() - 40;
     int visHeight = height() - startY - 20;
 
-    int barWidth = (visWidth / NUM_BANDS) - 4;
-    if (barWidth < 4) barWidth = 4;
+    // Fractional step so bars fill the full width (no leftover gap on the right).
+    const double step = double(visWidth) / NUM_BANDS;
+    int barWidth = std::max(4, int(step) - 4);
 
     // Phosphor green gradients for retro CRT feel
     QLinearGradient barGrad(0, startY + visHeight, 0, startY);
@@ -451,7 +467,7 @@ void WinampDisplay::drawModernDisplay(QPainter& painter) {
 
     for (int i = 0; i < NUM_BANDS; ++i) {
         const Band& b = m_bands[i];
-        int bx = startX + i * (barWidth + 4);
+        int bx = startX + int(std::round(i * step));
         int barValHeight = std::round(b.current * visHeight);
 
         // Draw rounded vector bar

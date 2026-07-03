@@ -22,6 +22,10 @@ if(NOT APPLE AND UNIX)
     find_package(KF6WidgetsAddons REQUIRED)
     find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools Multimedia DBus Network)
 
+    # Live Audio-CD streaming (libcdio_paranoia). Optical drives are a
+    # non-Apple thing, so we only look for it here.
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(CDIO_PARANOIA IMPORTED_TARGET libcdio_paranoia)
 
 else()
     find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools Multimedia Network)
@@ -56,10 +60,14 @@ set(SRC
     src/PlasmaPercent.cpp
     src/Mixer.cpp
     include/Mixer.hpp
+    src/CddaSource.cpp
+    include/CddaSource.hpp
     src/SongDownloader.cpp
     include/SongDownloader.hpp
     src/WinampDisplay.cpp
     include/WinampDisplay.hpp
+    src/PatternVisualizer.cpp
+    include/PatternVisualizer.hpp
     src/VolumeSignalWidget.cpp
     include/VolumeSignalWidget.hpp
     src/PluginManager.cpp
@@ -75,7 +83,8 @@ configure_file(${CMAKE_SOURCE_DIR}/resources.qrc
 
 qt_add_executable(kalorite
     ${SRC}
-    ${CMAKE_BINARY_DIR}/resources.qrc)
+    ${CMAKE_BINARY_DIR}/resources.qrc
+    ${CMAKE_SOURCE_DIR}/assets.qrc)
 
 qt_add_translations(kalorite
     TS_FILES
@@ -107,6 +116,15 @@ if (NOT APPLE)
         luajit)
     # LuaJIT needs the executable's symbols exported for its FFI/GC to work.
     target_link_options(kalorite PRIVATE -Wl,-E)
+
+    # Enable live Audio-CD support only when libcdio_paranoia is present.
+    if(CDIO_PARANOIA_FOUND)
+        target_link_libraries(kalorite PRIVATE PkgConfig::CDIO_PARANOIA)
+        target_compile_definitions(kalorite PRIVATE KALORITE_HAVE_CDDA)
+        message(STATUS "Audio CD support: enabled (libcdio_paranoia)")
+    else()
+        message(STATUS "Audio CD support: disabled (libcdio_paranoia not found)")
+    endif()
 else()
     target_link_libraries(kalorite PRIVATE
         Qt6::Widgets

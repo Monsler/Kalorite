@@ -13,12 +13,16 @@
 #include <qlabel.h>
 #include <qlistwidget.h>
 #include <qmediaplayer.h>
+#include <QMediaDevices>
+#include <QAudioDevice>
 #include <qspinbox.h>
 #include <qcheckbox.h>
 #include <qframe.h>
 #include "SongDownloader.hpp"
 #include "WinampDisplay.hpp"
+#include "PatternVisualizer.hpp"
 #include "VolumeSignalWidget.hpp"
+#include <nlohmann/json.hpp>
 
 namespace Kalorite
 {
@@ -58,6 +62,7 @@ namespace Kalorite
         QString pluginPlaylistTitle(int index) const;
         int     pluginCurrentIndex() const;
         void    pluginPlayIndex(int index);
+        void    addSoundFile(const QString& filePath, const QString& displayName = QString());
 
     signals:
         // Emitted on the GUI thread; PluginManager fans these out to plugins.
@@ -79,17 +84,29 @@ namespace Kalorite
         void onSpinTriggered(const int value);
         void onRepeatButtonTriggered();
         void onContextMenuSoundList(const QPoint &pos);
+        void onRowsReordered();
         void savePlaylistTriggered();
         void loadPlaylistTriggered();
         void openSoundFileDownloadDialog();
         void addFolderTriggered();
+        void openAudioCdTriggered();
         void onDurationChanged(qint64 durationMs);
-        void addSoundFile(const QString& filePath);
         void onContextMenuWinampDisplay(const QPoint &pos);
         void openAddPluginDialog();
         void openAboutDialog();
 
         private:
+
+        // Persistent app settings (general-purpose JSON store for the future).
+        QString settingsFilePath() const;
+        void loadSettings();
+        void saveSettings();
+        // Apply the persisted context-menu settings to the mixer / displays once
+        // all the widgets have been constructed.
+        void applyLoadedSettings();
+
+        // Plays the embedded greeting jingle once, on the very first launch.
+        void playFirstRunGreeting();
 
         void startPlayback();
         void stopPlayback();
@@ -97,6 +114,14 @@ namespace Kalorite
         void setPlaybackPos(const int percent);
         void seekToTrack(const int id);
         void genShuffle();
+
+        // Playlist item widget + priority queue helpers.
+        void buildItemWidget(class QListWidgetItem* item);
+        void refreshQueueLabels();
+        void toggleQueueForRow(int row);
+        void clearQueueEntryForRow(int row);
+        int  takeQueueHead();
+        int  takeNextQueuedTrack();
 
         protected:
         void closeEvent(QCloseEvent* event) override;
@@ -145,7 +170,18 @@ namespace Kalorite
         bool m_bitPerfectEnabled = false;
         bool m_smartGainEnabled = false;
 
+        // Live audio output device list: filled at startup and kept in sync
+        // via QMediaDevices::audioOutputsChanged.
+        QMediaDevices* mediaDevices = nullptr;
+        QList<QAudioDevice> audioDevices;
+
         PlasmaPercent percent;
         WinampDisplay* winampDisplay;
+        PatternVisualizer* patternVisualizer;
+        QAction* showPatternVizAction = nullptr;
+
+        // General-purpose persisted settings (loaded at startup, saved on change
+        // and on close). Keep new options here so everything lands in one file.
+        nlohmann::json m_settings;
     };
 } // namespace Kalorite

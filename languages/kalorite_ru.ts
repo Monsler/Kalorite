@@ -228,6 +228,30 @@
         <source>Enable Bit Perfect</source>
         <translation>Включить Bit Perfect</translation>
     </message>
+    <message>
+        <source>Show Pattern Visualizer</source>
+        <translation>Показать визуализатор паттернов</translation>
+    </message>
+    <message>
+        <source>Open Audio CD</source>
+        <translation>Открыть Audio CD</translation>
+    </message>
+    <message>
+        <source>No optical drive was found.</source>
+        <translation>Оптический привод не найден.</translation>
+    </message>
+    <message>
+        <source>Select a drive:</source>
+        <translation>Выберите привод:</translation>
+    </message>
+    <message>
+        <source>No audio disc could be read in the selected drive.</source>
+        <translation>Не удалось прочитать аудиодиск в выбранном приводе.</translation>
+    </message>
+    <message>
+        <source>Audio CD — Track %1 (%2:%3)</source>
+        <translation>Audio CD — дорожка %1 (%2:%3)</translation>
+    </message>
 </context>
 <context>
     <name>Kalorite::SongDownloader</name>

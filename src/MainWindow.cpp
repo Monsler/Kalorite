@@ -1,12 +1,15 @@
 #include "MainWindow.hpp"
 #include "Mixer.hpp"
+#include "CddaSource.hpp"
 #include "PluginManager.hpp"
+#include <QInputDialog>
 #include <fstream>
 #include <qaction.h>
 #include <QActionGroup>
 #include <qapplication.h>
 #include <qnamespace.h>
 #include <QDir>
+#include <QStandardPaths>
 #include <QDirIterator>
 #include <QFileInfo>
 #include <qfiledialog.h>
@@ -26,11 +29,24 @@
 #define ICON_REPEAT_THE_LIST QIcon::fromTheme("media-playlist-repeat-amarok")
 #define ICON_REPEAT_SHUFFLE QIcon::fromTheme("media-playlist-shuffle")
 
+// Playlist item data roles. RolePath is the on-disk path (also used by the
+// plugin API); the rest let us rebuild an item's widget from scratch after a
+// drag reorder, since Qt only preserves item data — not the item widget.
+static constexpr int RolePath     = Qt::UserRole;      // QString file path
+static constexpr int RoleName     = Qt::UserRole + 1;  // QString display name
+static constexpr int RoleDuration = Qt::UserRole + 2;  // QString "mm:ss"
+static constexpr int RoleQueue    = Qt::UserRole + 3;  // int, 0 = not queued
+
 #include <QDialog>
 #include <QLabel>
 #include <QMouseEvent>
+#include <QShortcut>
 #include <QRandomGenerator>
 #include <QPainter>
+#include <QDesktopServices>
+#include <QToolTip>
+#include <QUrl>
+#include <QCursor>
 #include <cmath>
 
 namespace {
@@ -103,6 +119,7 @@ private:
 namespace Kalorite
 {
     MainWindow::MainWindow() {
+        loadSettings();
         resize(500, 150);
         setWindowTitle("Kalorite");
         setWindowIcon(QIcon("kalorite"));
@@ -159,15 +176,28 @@ namespace Kalorite
 
         connect(exitAction, &QAction::triggered, this, &QApplication::quit);
 
-        // Pre-fetch/warmup audio outputs list in constructor to avoid first-right-click GUI freeze
-        QTimer::singleShot(100, [this]() {
-            QMediaDevices::audioOutputs();
+        // Fetch the audio outputs list shortly after startup (querying it is
+        // slow, so keep it off the constructor's critical path) and keep it in
+        // sync afterwards: audioOutputsChanged fires whenever devices are
+        // plugged in or removed.
+        this->mediaDevices = new QMediaDevices(this);
+        connect(this->mediaDevices, &QMediaDevices::audioOutputsChanged, this, [this]() {
+            this->audioDevices = QMediaDevices::audioOutputs();
+        });
+        QTimer::singleShot(100, this, [this]() {
+            this->audioDevices = QMediaDevices::audioOutputs();
         });
 
         this->winampDisplay = new WinampDisplay(this);
         this->winampDisplay->setMixer(this->mixer);
         this->winampDisplay->setVolume(100);
         this->winampDisplay->setFixedHeight(120);
+
+        this->patternVisualizer = new PatternVisualizer(this);
+        this->patternVisualizer->setMixer(this->mixer);
+        this->patternVisualizer->setVolume(100);
+        this->patternVisualizer->setFixedHeight(120);
+        this->patternVisualizer->setFixedWidth(200);
 
         this->volumeSignal = new VolumeSignalWidget(this);
         this->volumeSignal->setVolume(100);
@@ -203,6 +233,26 @@ namespace Kalorite
         });
 
         connect(winampDisplay, &WinampDisplay::contextMenuRequested, this, &MainWindow::onContextMenuWinampDisplay);
+        // The pattern visualizer shares the same right-click context menu.
+        connect(patternVisualizer, &PatternVisualizer::contextMenuRequested, this, &MainWindow::onContextMenuWinampDisplay);
+
+        // Restore the persisted context-menu settings now that the mixer and the
+        // displays exist.
+        applyLoadedSettings();
+
+        // Toggle for the pattern visualizer, persisted in the settings file.
+        viewMenu->addSeparator();
+        showPatternVizAction = new QAction(tr("Show Pattern Visualizer"), this);
+        showPatternVizAction->setCheckable(true);
+        bool patternVizVisible = m_settings.value("pattern_visualizer_visible", true);
+        showPatternVizAction->setChecked(patternVizVisible);
+        patternVisualizer->setVisible(patternVizVisible);
+        viewMenu->addAction(showPatternVizAction);
+        connect(showPatternVizAction, &QAction::toggled, this, [this](bool checked) {
+            patternVisualizer->setVisible(checked);
+            m_settings["pattern_visualizer_visible"] = checked;
+            saveSettings();
+        });
 
         // Plugins menu comes right after View in the menu bar. It is filled in
         // once the PluginManager has scanned the plugins directory (below).
@@ -227,8 +277,23 @@ namespace Kalorite
         soundList = new QListWidget();
         soundList->setFixedHeight(160);
         soundList->setContextMenuPolicy(Qt::CustomContextMenu);
+        // Drag-and-drop reordering of playlist entries (Winamp-style). The moved
+        // QListWidgetItem keeps its data roles but loses its item widget, so we
+        // rebuild the widgets in onRowsReordered once the model settles.
+        soundList->setDragDropMode(QAbstractItemView::InternalMove);
+        soundList->setSelectionMode(QAbstractItemView::SingleSelection);
+        soundList->setDefaultDropAction(Qt::MoveAction);
         connect(soundList, &QListWidget::itemDoubleClicked, this, &MainWindow::onListSelection);
         connect(soundList, &QListWidget::customContextMenuRequested, this, &MainWindow::onContextMenuSoundList);
+        connect(soundList->model(), &QAbstractItemModel::rowsMoved, this, &MainWindow::onRowsReordered);
+
+        // Winamp "Q" priority queue: press Q on the selected track to enqueue it.
+        // Only meaningful in Repeat-List mode (loopType 2); see toggleQueueForRow.
+        QShortcut* queueShortcut = new QShortcut(QKeySequence(Qt::Key_Q), soundList);
+        queueShortcut->setContext(Qt::WidgetShortcut);
+        connect(queueShortcut, &QShortcut::activated, this, [this]() {
+            this->toggleQueueForRow(this->soundList->currentRow());
+        });
 
         playbackButton = new QPushButton();
         playbackButton->setIcon(ICON_PLAY);
@@ -413,6 +478,16 @@ namespace Kalorite
         bottomButtonsLayout->addWidget(addFileButton);
         bottomButtonsLayout->addWidget(addFolderButton);
 
+        // Audio CD ripping-on-the-fly. Macs have no optical drives any more, so
+        // the whole feature (and its libcdio dependency) is absent there.
+#ifndef Q_OS_MACOS
+        QPushButton* openCdButton = new QPushButton(QIcon::fromTheme("media-optical"), "", this);
+        openCdButton->setToolTip(tr("Open Audio CD"));
+        openCdButton->setFixedSize(32, 32);
+        connect(openCdButton, &QPushButton::clicked, this, &MainWindow::openAudioCdTriggered);
+        bottomButtonsLayout->addWidget(openCdButton);
+#endif
+
         containerLayout->addWidget(soundList);
         containerLayout->addLayout(bottomButtonsLayout);
         playlistContainer->setLayout(containerLayout);
@@ -422,7 +497,11 @@ namespace Kalorite
             playlistToggleBtn->setText(QString("%1 %2").arg(checked ? "▼" : "▶").arg(tr("Playlist")));
         });
 
-        this->mainLayout->addWidget(winampDisplay);
+        // Wave display and the WMP9-style pattern visualizer side by side
+        QHBoxLayout* displaysLayout = new QHBoxLayout();
+        displaysLayout->addWidget(winampDisplay, 1);
+        displaysLayout->addWidget(patternVisualizer);
+        this->mainLayout->addLayout(displaysLayout);
         this->mainLayout->addLayout(playerLayout);
         this->mainLayout->addWidget(eqToggleBtn);
         this->mainLayout->addWidget(eqContainer);
@@ -449,6 +528,38 @@ namespace Kalorite
             this->centralWidget->adjustSize();
             this->adjustSize();
         });
+
+        // First launch: greet the user with the embedded jingle, played through
+        // the mixer/visualizers but never added to the playlist. Guarded by a
+        // persistent flag so it only ever happens once.
+        if (!m_settings.value("greeting_played", false)) {
+            m_settings["greeting_played"] = true;
+            saveSettings();
+            QTimer::singleShot(300, this, &MainWindow::playFirstRunGreeting);
+        }
+    }
+
+    void MainWindow::playFirstRunGreeting() {
+        // miniaudio decodes from a real file on disk, not from Qt's virtual
+        // resource filesystem, so extract the embedded asset to the cache dir.
+        QString outPath = QDir(QStandardPaths::writableLocation(QStandardPaths::CacheLocation))
+                              .filePath("greeting.mp3");
+        QDir().mkpath(QFileInfo(outPath).absolutePath());
+        QFile::remove(outPath);
+        if (QFile::copy(":/audio/greeting.mp3", outPath)) {
+            QFile::setPermissions(outPath, QFile::ReadOwner | QFile::WriteOwner);
+        }
+        if (!QFileInfo::exists(outPath)) return;
+
+        // Play through the mixer and both visualizers WITHOUT touching the
+        // playlist or currentAudio, so the first track the user adds later still
+        // auto-selects as usual.
+        this->mixer->setCurrent(outPath.toStdString());
+        this->winampDisplay->loadAudioFile(outPath);
+        this->isPlaying = true;
+        this->playbackButton->setIcon(ICON_PAUSE);
+        this->mixer->play();
+        this->playbackTimer->start(50);
     }
 
     void MainWindow::openAddPluginDialog() {
@@ -500,15 +611,32 @@ namespace Kalorite
         text->setAlignment(Qt::AlignTop | Qt::AlignLeft);
         text->setWordWrap(true);
         text->setTextFormat(Qt::RichText);
-        text->setOpenExternalLinks(true);
+        // We handle link clicks ourselves so the version can act as a hidden
+        // switch (replaying the greeting) while the GitHub link still opens
+        // externally.
+        text->setOpenExternalLinks(false);
         text->setText(tr(
             "<h2 style='margin-bottom:2px'>Kalorite</h2>"
-            "<p style='color:gray;margin-top:0'>Version %1</p>"
+            "<p style='color:gray;margin-top:0'>"
+            "<a href='kalorite:reset-greeting' style='color:gray;text-decoration:none'>Version %1</a></p>"
             "<p>Kalorite is a lightweight audio player. It supports all modern "
             "codecs and have simple and elegant design.</p>"
             "<p>by monsler<br>"
             "<a href='https://github.com/Monsler/Kalorite'>github.com/Monsler/Kalorite</a></p>")
             .arg(version));
+
+        connect(text, &QLabel::linkActivated, this, [this, text](const QString& link) {
+            if (link == QLatin1String("kalorite:reset-greeting")) {
+                // Clear the "already greeted" flag so the greeting jingle plays
+                // again on the next launch.
+                m_settings["greeting_played"] = false;
+                saveSettings();
+                QToolTip::showText(QCursor::pos(),
+                    tr("Greeting will play again on next launch"), text);
+            } else {
+                QDesktopServices::openUrl(QUrl(link));
+            }
+        });
 
         // The logo starts pinned top-left with a small margin; clicking it
         // sets off the bouncing easter egg over the whole dialog.
@@ -606,6 +734,7 @@ namespace Kalorite
     void MainWindow::onSpinTriggered(const int value) {
         this->mixer->setVolume(value);
         this->winampDisplay->setVolume(value);
+        this->patternVisualizer->setVolume(value);
         if (this->volumeSignal->volume() != value) {
             this->volumeSignal->setVolume(value);
         }
@@ -629,7 +758,55 @@ namespace Kalorite
         updateTimeLabel();
     }
 
+    QString MainWindow::settingsFilePath() const {
+        QString dir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+        if (dir.isEmpty()) dir = QDir::homePath() + "/.config/kalorite";
+        QDir().mkpath(dir);
+        return dir + "/settings.json";
+    }
+
+    void MainWindow::loadSettings() {
+        m_settings = nlohmann::json::object();
+        std::ifstream file(settingsFilePath().toStdString());
+        if (file.is_open()) {
+            try {
+                file >> m_settings;
+            } catch (const std::exception& e) {
+                qWarning() << "Failed to parse settings, using defaults:" << e.what();
+                m_settings = nlohmann::json::object();
+            }
+        }
+        if (!m_settings.is_object()) m_settings = nlohmann::json::object();
+    }
+
+    void MainWindow::saveSettings() {
+        std::ofstream file(settingsFilePath().toStdString());
+        if (file.is_open()) file << m_settings.dump(2);
+    }
+
+    void MainWindow::applyLoadedSettings() {
+        // Display mode (Retro / Modern). Emitting through setModernMode keeps the
+        // menu-bar checkboxes in sync via the modeChanged signal.
+        bool modern = m_settings.value("modern_mode", false);
+        winampDisplay->setModernMode(modern);
+        volumeSignal->setModernMode(modern);
+
+        // Playback / mixing toggles.
+        m_crossfadeEnabled  = m_settings.value("crossfade_enabled", false);
+        m_smartGainEnabled  = m_settings.value("smart_gain_enabled", false);
+        m_bitPerfectEnabled = m_settings.value("bit_perfect_enabled", false);
+        mixer->setGaplessEnabled(m_settings.value("gapless_enabled", false));
+        mixer->setDoubleBufferingEnabled(m_settings.value("double_buffering_enabled", false));
+
+        // Audio output device (matched by name against the enumerated devices).
+        if (m_settings.contains("audio_device")) {
+            std::string dev = m_settings.value("audio_device", std::string());
+            if (!dev.empty()) mixer->setDeviceByName(dev);
+        }
+    }
+
     void MainWindow::closeEvent(QCloseEvent* event) {
+        saveSettings();
         QApplication::exit();
     }
 
@@ -637,19 +814,45 @@ namespace Kalorite
         int listSize = this->soundList->count();
 
         if (id >= 0 && id < listSize) {
+            std::string requested = this->soundList->item(id)->data(Qt::UserRole).toString().toStdString();
+            bool sameTrack = (requested == this->currentAudio);
+
             this->soundList->setCurrentRow(id);
             this->currentId = id;
+            // Starting a queued track directly consumes its queue entry.
+            clearQueueEntryForRow(id);
 
             if (m_crossfadeEnabled || mixer->isGaplessEnabled()) {
                 // Seamless transition: do NOT call stopPlayback()/startPlayback()
-                // to prevent miniaudio sound slots from being brutally uninitialized/stopped
-                setCurrentSong(this->soundList->item(id)->data(Qt::UserRole).toString().toStdString());
-                this->isPlaying = true;
-                this->playbackButton->setIcon(ICON_PAUSE);
-                this->playbackTimer->start(50);
+                // to prevent miniaudio sound slots from being brutally uninitialized/stopped.
+                if (sameTrack && isPlaying) {
+                    // Re-selecting the track that is already playing: just restart it.
+                    // Loading it again would spin up a second overlapping copy in the
+                    // free slot (crossfade/gapless start the incoming sound at once),
+                    // playing the same track twice on top of itself.
+                    mixer->setPosition(0);
+                    this->isPlaying = true;
+                    this->playbackButton->setIcon(ICON_PAUSE);
+                    this->playbackTimer->start(50);
+                } else if (isPlaying) {
+                    // Switching tracks while playing: setCurrent overlaps the incoming
+                    // sound with the outgoing one and starts it itself. Bit Perfect
+                    // loads the new track paused, so start it explicitly (a no-op for
+                    // the engine path, which is already playing).
+                    setCurrentSong(requested);
+                    this->mixer->play();
+                    this->playbackButton->setIcon(ICON_PAUSE);
+                    this->playbackTimer->start(50);
+                } else {
+                    // Not playing yet (e.g. just added the track and double-clicked it):
+                    // there is no outgoing sound to overlap, so setCurrent only loads it
+                    // into the slot. Start it explicitly via startPlayback().
+                    setCurrentSong(requested);
+                    startPlayback();
+                }
             } else {
                 stopPlayback();
-                setCurrentSong(this->soundList->item(id)->data(Qt::UserRole).toString().toStdString());
+                setCurrentSong(requested);
                 startPlayback();
             }
         }
@@ -684,7 +887,145 @@ namespace Kalorite
         return false;
     }
 
-    void MainWindow::addSoundFile(const QString& filePath) {
+    // (Re)creates the row's item widget from its stored data roles. Used both on
+    // insert and after a drag reorder, which drops the old widget.
+    void MainWindow::buildItemWidget(QListWidgetItem* item) {
+        QString name = item->data(RoleName).toString();
+        QString dur  = item->data(RoleDuration).toString();
+        int q        = item->data(RoleQueue).toInt();
+
+        QWidget* widget = new QWidget();
+        QHBoxLayout* layout = new QHBoxLayout(widget);
+        layout->setContentsMargins(8, 4, 8, 4);
+
+        QLabel* nameLabel = new QLabel(q > 0 ? QStringLiteral("[%1] %2").arg(q).arg(name) : name);
+        nameLabel->setObjectName("nameLabel");
+
+        QLabel* durationLabel = new QLabel(dur.isEmpty() ? QStringLiteral("--:--") : dur);
+        durationLabel->setObjectName("durationLabel");
+        durationLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        durationLabel->setStyleSheet("color: #ffffff; font-family: monospace;");
+
+        layout->addWidget(nameLabel);
+        layout->addWidget(durationLabel);
+        widget->setLayout(layout);
+        // Let clicks/drags fall through to the list so reordering and selection
+        // keep working over the row's labels.
+        widget->setAttribute(Qt::WA_TransparentForMouseEvents);
+
+        soundList->setItemWidget(item, widget);
+    }
+
+    // After a drag reorder Qt keeps item data but discards item widgets and can
+    // reset the current row, so rebuild any missing widgets, re-sync currentId to
+    // the still-playing track, and regenerate the shuffle order.
+    void MainWindow::onRowsReordered() {
+        for (int i = 0; i < soundList->count(); ++i) {
+            QListWidgetItem* item = soundList->item(i);
+            if (!soundList->itemWidget(item)) buildItemWidget(item);
+        }
+
+        for (int i = 0; i < soundList->count(); ++i) {
+            if (soundList->item(i)->data(RolePath).toString().toStdString() == this->currentAudio) {
+                this->currentId = i;
+                this->soundList->setCurrentRow(i);
+                break;
+            }
+        }
+
+        genShuffle();
+    }
+
+    // Refreshes every row's name label to reflect its current queue number.
+    void MainWindow::refreshQueueLabels() {
+        for (int i = 0; i < soundList->count(); ++i) {
+            QListWidgetItem* item = soundList->item(i);
+            QWidget* w = soundList->itemWidget(item);
+            if (!w) continue;
+            QLabel* nl = w->findChild<QLabel*>("nameLabel");
+            if (!nl) continue;
+            int q = item->data(RoleQueue).toInt();
+            QString name = item->data(RoleName).toString();
+            nl->setText(q > 0 ? QStringLiteral("[%1] %2").arg(q).arg(name) : name);
+        }
+    }
+
+    // Toggles the given row in the priority queue. Enqueuing appends the next
+    // number ([1], [2], ...); toggling an already-queued row removes it and
+    // renumbers the rest. Only active in Repeat-List mode (loopType 2).
+    void MainWindow::toggleQueueForRow(int row) {
+        if (loopType != 2) return;
+        if (row < 0 || row >= soundList->count()) return;
+
+        QListWidgetItem* item = soundList->item(row);
+        int q = item->data(RoleQueue).toInt();
+
+        if (q > 0) {
+            item->setData(RoleQueue, 0);
+            for (int i = 0; i < soundList->count(); ++i) {
+                int qi = soundList->item(i)->data(RoleQueue).toInt();
+                if (qi > q) soundList->item(i)->setData(RoleQueue, qi - 1);
+            }
+        } else {
+            int maxq = 0;
+            for (int i = 0; i < soundList->count(); ++i)
+                maxq = std::max(maxq, soundList->item(i)->data(RoleQueue).toInt());
+            item->setData(RoleQueue, maxq + 1);
+        }
+        refreshQueueLabels();
+    }
+
+    // Drops the given row from the priority queue (renumbering the rest) without
+    // playing it. Called when a track starts by other means than the queue pop
+    // (double-click, plugin play_index): otherwise the row keeps its number and,
+    // once it finishes, takeQueueHead() would pop the track itself — restarting
+    // it from the beginning instead of advancing to the next queued track.
+    void MainWindow::clearQueueEntryForRow(int row) {
+        if (row < 0 || row >= soundList->count()) return;
+        int q = soundList->item(row)->data(RoleQueue).toInt();
+        if (q <= 0) return;
+
+        soundList->item(row)->setData(RoleQueue, 0);
+        for (int i = 0; i < soundList->count(); ++i) {
+            int qi = soundList->item(i)->data(RoleQueue).toInt();
+            if (qi > q) soundList->item(i)->setData(RoleQueue, qi - 1);
+        }
+        refreshQueueLabels();
+    }
+
+    // Pops the head of the priority queue (number 1), decrements the rest, and
+    // returns its row — or -1 if the queue is empty.
+    int MainWindow::takeQueueHead() {
+        // Head = the lowest positive queue number (robust to gaps left by removals).
+        int headRow = -1, headQ = 0;
+        for (int i = 0; i < soundList->count(); ++i) {
+            int qi = soundList->item(i)->data(RoleQueue).toInt();
+            if (qi > 0 && (headRow < 0 || qi < headQ)) { headRow = i; headQ = qi; }
+        }
+        if (headRow < 0) return -1;
+
+        soundList->item(headRow)->setData(RoleQueue, 0);
+        for (int i = 0; i < soundList->count(); ++i) {
+            int qi = soundList->item(i)->data(RoleQueue).toInt();
+            if (qi > headQ) soundList->item(i)->setData(RoleQueue, qi - 1);
+        }
+        refreshQueueLabels();
+        return headRow;
+    }
+
+    // Pops the next queued track to play, discarding any queue entry that points
+    // at the track that just finished (currentId). Queuing the currently-playing
+    // track — which happens when the selection has drifted onto it and the user
+    // presses Q — must never make it replay from the start; we drop that entry
+    // and advance to the next real target instead. Returns -1 once the queue
+    // holds nothing but (discarded) self-references.
+    int MainWindow::takeNextQueuedTrack() {
+        int head = takeQueueHead();
+        while (head == this->currentId) head = takeQueueHead();
+        return head;
+    }
+
+    void MainWindow::addSoundFile(const QString& filePath, const QString& displayName) {
         if (filePath.isEmpty()) return;
 
         // Check if already in list
@@ -694,29 +1035,18 @@ namespace Kalorite
             }
         }
 
-        QFileInfo fileInfo(filePath);
-        QString fileName = fileInfo.fileName();
+        // CD tracks (and any caller that supplies one) get a friendly label;
+        // everything else falls back to the file name on disk.
+        QString fileName = !displayName.isEmpty()
+            ? displayName
+            : QFileInfo(filePath).fileName();
 
         QListWidgetItem* item = new QListWidgetItem(soundList);
-        item->setData(Qt::UserRole, filePath);
-
-        QWidget* widget = new QWidget();
-        QHBoxLayout* layout = new QHBoxLayout(widget);
-        layout->setContentsMargins(8, 4, 8, 4);
-
-        QLabel* nameLabel = new QLabel(fileName);
-        nameLabel->setObjectName("nameLabel");
-
-        QLabel* durationLabel = new QLabel("--:--");
-        durationLabel->setObjectName("durationLabel");
-        durationLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        durationLabel->setStyleSheet("color: #ffffff; font-family: monospace;");
-
-        layout->addWidget(nameLabel);
-        layout->addWidget(durationLabel);
-        widget->setLayout(layout);
-
-        soundList->setItemWidget(item, widget);
+        item->setData(RolePath, filePath);
+        item->setData(RoleName, fileName);
+        item->setData(RoleDuration, QStringLiteral("--:--"));
+        item->setData(RoleQueue, 0);
+        buildItemWidget(item);
 
         if (this->currentAudio == "") {
             this->currentAudio = filePath.toStdString();
@@ -743,6 +1073,43 @@ namespace Kalorite
         }
     }
 
+    void MainWindow::openAudioCdTriggered() {
+        std::vector<std::string> drives = CddaSource::listDrives();
+        if (drives.empty()) {
+            QMessageBox::warning(this, tr("Open Audio CD"),
+                tr("No optical drive was found."));
+            return;
+        }
+
+        // Pick a drive: silently when there is only one, otherwise ask.
+        std::string device = drives.front();
+        if (drives.size() > 1) {
+            QStringList items;
+            for (const std::string& d : drives) items << QString::fromStdString(d);
+            bool ok = false;
+            QString chosen = QInputDialog::getItem(this, tr("Open Audio CD"),
+                tr("Select a drive:"), items, 0, false, &ok);
+            if (!ok || chosen.isEmpty()) return;
+            device = chosen.toStdString();
+        }
+
+        std::vector<CddaTrackInfo> tracks = CddaSource::readToc(device);
+        if (tracks.empty()) {
+            QMessageBox::warning(this, tr("Open Audio CD"),
+                tr("No audio disc could be read in the selected drive."));
+            return;
+        }
+
+        for (const CddaTrackInfo& t : tracks) {
+            int totalSec = (int)(t.lengthMs / 1000);
+            QString label = tr("Audio CD — Track %1 (%2:%3)")
+                .arg(t.number, 2, 10, QChar('0'))
+                .arg(totalSec / 60, 2, 10, QChar('0'))
+                .arg(totalSec % 60, 2, 10, QChar('0'));
+            addSoundFile(QString::fromStdString(CddaSource::makePath(device, t.number)), label);
+        }
+    }
+
     void MainWindow::onDurationChanged(qint64 durationMs) {
         int currentId = this->soundList->currentRow();
         if (currentId >= 0 && currentId < this->soundList->count()) {
@@ -750,14 +1117,14 @@ namespace Kalorite
             QWidget* widget = this->soundList->itemWidget(item);
             if (widget) {
                 QLabel* durationLabel = widget->findChild<QLabel*>("durationLabel");
-                if (durationLabel) {
-                    int totalSeconds = durationMs / 1000;
-                    int minutes = (totalSeconds % 3600) / 60;
-                    int seconds = totalSeconds % 60;
-                    durationLabel->setText(QString("%1:%2")
-                        .arg(minutes, 2, 10, QChar('0'))
-                        .arg(seconds, 2, 10, QChar('0')));
-                }
+                int totalSeconds = durationMs / 1000;
+                int minutes = (totalSeconds % 3600) / 60;
+                int seconds = totalSeconds % 60;
+                QString durText = QString("%1:%2")
+                    .arg(minutes, 2, 10, QChar('0'))
+                    .arg(seconds, 2, 10, QChar('0'));
+                item->setData(RoleDuration, durText);
+                if (durationLabel) durationLabel->setText(durText);
             }
         }
     }
@@ -809,7 +1176,11 @@ namespace Kalorite
         // We only trigger track end if we are supposed to be playing (isPlaying is true),
         // the mixer is not playing, and we have actually progressed past the start (position > 0)
         // or the track has a duration and we are at the very end.
-        if (isPlaying && !mixer->isPlaying() && mixer->getPositionMs() >= (mixer->getDurationMs() - 100)) {
+        // Require a real duration: a freshly-loaded track can momentarily report
+        // duration 0, which would make (pos 0 >= 0 - 100) spuriously true and
+        // "finish" the track instantly — skipping it and eating the next queue entry.
+        if (isPlaying && !mixer->isPlaying() && mixer->getDurationMs() > 100
+            && mixer->getPositionMs() >= (mixer->getDurationMs() - 100)) {
             emit pluginTrackFinished(QString::fromStdString(this->currentAudio));
             // Track has ended - handle looping/next track logic
             if (loopType == 0) {
@@ -819,16 +1190,13 @@ namespace Kalorite
                 this->mixer->setPosition(0);
                 startPlayback();
             } else if (loopType == 2) {
-                int newTrack = this->currentId + 1;
-                if (newTrack < this->soundList->count()) {
-                    this->currentId = newTrack;
-                    this->soundList->setCurrentRow(this->currentId);
-                    setCurrentSong(this->soundList->item(this->currentId)->data(Qt::UserRole).toString().toStdString());
-                } else {
-                    this->currentId = 0;
-                    this->soundList->setCurrentRow(this->currentId);
-                    setCurrentSong(this->soundList->item(this->currentId)->data(Qt::UserRole).toString().toStdString());
-                }
+                int queued = takeNextQueuedTrack();
+                int newTrack = (queued >= 0)
+                    ? queued
+                    : (this->currentId + 1 < this->soundList->count() ? this->currentId + 1 : 0);
+                this->currentId = newTrack;
+                this->soundList->setCurrentRow(this->currentId);
+                setCurrentSong(this->soundList->item(this->currentId)->data(RolePath).toString().toStdString());
                 startPlayback();
             } else if (loopType == 3) {
                 if (shufflePos == shuffle.size() - 1) {
@@ -877,6 +1245,7 @@ namespace Kalorite
         this->timeLabel->setText(textValue);
         this->playbackSlider->setValue(played);
         this->winampDisplay->setPlaybackState(this->isPlaying, posMs, durationMs);
+        this->patternVisualizer->setPlaying(this->isPlaying);
 
         this->percent.emitPercent(played);
     }
@@ -885,6 +1254,14 @@ namespace Kalorite
         loopType++;
         if (loopType > 3) {
             loopType = 0;
+        }
+
+        // The priority queue only lives in Repeat-List mode; leaving it clears
+        // any pending numbers so stale [n] markers don't linger.
+        if (loopType != 2) {
+            for (int i = 0; i < soundList->count(); ++i)
+                soundList->item(i)->setData(RoleQueue, 0);
+            refreshQueueLabels();
         }
 
         if (loopType == 0) {
@@ -919,6 +1296,11 @@ namespace Kalorite
             this->playbackSlider->setValue(95);
             this->mixer->setPosition(95 * this->mixer->getDurationMs() / 100);
         } else {
+            // In Repeat-List mode a queued track jumps the line on manual skip too.
+            if (loopType == 2) {
+                int queued = takeNextQueuedTrack();
+                if (queued >= 0) { seekToTrack(queued); return; }
+            }
             int id = this->soundList->currentRow() + 1;
             seekToTrack(id);
         }
@@ -932,15 +1314,21 @@ namespace Kalorite
 
         int nextId = -1;
         switch (loopType) {
-            case 0: // No repeat: advance if there is a next track, otherwise let it end.
-                if (this->currentId + 1 < this->soundList->count()) nextId = this->currentId + 1;
+            case 0: // No repeat: let the track end and stop, matching the non-crossfade
+                    // path in onPlayback (loopType 0 -> stopPlayback, no auto-advance).
+                    // Returning -1 here leaves the outgoing track to finish; onPlayback
+                    // then stops playback once it drains.
                 break;
             case 1: // Repeat one: restart the same track.
                 nextId = this->currentId;
                 break;
-            case 2: // Repeat all: advance and wrap around.
-                nextId = (this->currentId + 1 < this->soundList->count()) ? this->currentId + 1 : 0;
+            case 2: { // Repeat all: honor the priority queue, else advance and wrap.
+                int queued = takeNextQueuedTrack();
+                nextId = (queued >= 0)
+                    ? queued
+                    : ((this->currentId + 1 < this->soundList->count()) ? this->currentId + 1 : 0);
                 break;
+            }
             case 3: // Shuffle.
                 if (shufflePos >= (int)shuffle.size() - 1) {
                     qDebug() << "Reached shuffle end; Generating a new one";
@@ -956,7 +1344,10 @@ namespace Kalorite
         this->currentId = nextId;
         this->soundList->setCurrentRow(nextId);
         setCurrentSong(this->soundList->item(nextId)->data(Qt::UserRole).toString().toStdString());
-        // Keep playback state; the mixer handles the seamless overlap internally.
+        // Keep playback state; the engine handles the seamless overlap internally.
+        // Bit Perfect loads the next track paused, so start it explicitly here
+        // (a no-op for the engine path, which is already playing the overlap).
+        this->mixer->play();
         this->isPlaying = true;
         this->playbackButton->setIcon(ICON_PAUSE);
         if (!this->playbackTimer->isActive()) this->playbackTimer->start(50);
@@ -995,6 +1386,7 @@ namespace Kalorite
         // Bit Perfect mode where the engine is bypassed), falls back to random
         // simulation and visibly trembles.
         this->winampDisplay->setPlaybackState(false, mixer->getPositionMs(), mixer->getDurationMs());
+        this->patternVisualizer->setPlaying(false);
 
         emit pluginPlaybackStateChanged("paused");
     }
@@ -1024,37 +1416,32 @@ namespace Kalorite
         connect(retroAct, &QAction::triggered, [this]() {
             winampDisplay->setModernMode(false);
             volumeSignal->setModernMode(false);
+            m_settings["modern_mode"] = false;
+            saveSettings();
         });
         connect(modernAct, &QAction::triggered, [this]() {
             winampDisplay->setModernMode(true);
             volumeSignal->setModernMode(true);
+            m_settings["modern_mode"] = true;
+            saveSettings();
         });
 
         menu.addSeparator();
 
-        // Audio devices submenu
+        // Audio devices submenu. Enumerate through the mixer (miniaudio) so the
+        // names match what setDeviceByName / getCurrentDeviceName use — otherwise
+        // the current device never gets a checkmark and selection can misfire.
         QMenu* devicesMenu = menu.addMenu(tr("Audio Device"));
-        
-        // Cache devices or query them. Since querying QMediaDevices on demand causes stutters,
-        // we can fetch them here. Note: to fully prevent the first-open stutter, we query it,
-        // but QMediaDevices::audioOutputs() is slow.
-        static QList<QAudioDevice> cachedDevices;
-        static bool devicesFetched = false;
-        if (!devicesFetched) {
-            cachedDevices = QMediaDevices::audioOutputs();
-            devicesFetched = true;
-        }
 
         std::string currentDeviceName = mixer->getCurrentDeviceName();
-
-        for (const QAudioDevice& device : cachedDevices) {
-            QAction* devAct = devicesMenu->addAction(device.description());
+        for (const std::string& name : mixer->getAudioDeviceNames()) {
+            QAction* devAct = devicesMenu->addAction(QString::fromStdString(name));
             devAct->setCheckable(true);
-            if (device.description().toStdString() == currentDeviceName) {
-                devAct->setChecked(true);
-            }
-            connect(devAct, &QAction::triggered, [this, device]() {
-                mixer->setDeviceByName(device.description().toStdString());
+            devAct->setChecked(name == currentDeviceName);
+            connect(devAct, &QAction::triggered, [this, name]() {
+                mixer->setDeviceByName(name);
+                m_settings["audio_device"] = name;
+                saveSettings();
             });
         }
 
@@ -1064,6 +1451,8 @@ namespace Kalorite
         crossfadeAct->setChecked(m_crossfadeEnabled);
         connect(crossfadeAct, &QAction::triggered, [this](bool checked) {
             m_crossfadeEnabled = checked;
+            m_settings["crossfade_enabled"] = checked;
+            saveSettings();
         });
 
         // Gapless Playback Action
@@ -1072,6 +1461,8 @@ namespace Kalorite
         gaplessAct->setChecked(mixer->isGaplessEnabled());
         connect(gaplessAct, &QAction::triggered, [this](bool checked) {
             mixer->setGaplessEnabled(checked);
+            m_settings["gapless_enabled"] = checked;
+            saveSettings();
         });
 
         // Double Buffering Action
@@ -1080,6 +1471,8 @@ namespace Kalorite
         dbAct->setChecked(mixer->isDoubleBufferingEnabled());
         connect(dbAct, &QAction::triggered, [this](bool checked) {
             mixer->setDoubleBufferingEnabled(checked);
+            m_settings["double_buffering_enabled"] = checked;
+            saveSettings();
         });
 
         // Smart Gain Action (peak limiting to avoid clipping)
@@ -1089,6 +1482,8 @@ namespace Kalorite
         smartGainAct->setEnabled(!m_bitPerfectEnabled); // Bit Perfect bypasses all processing
         connect(smartGainAct, &QAction::triggered, [this](bool checked) {
             m_smartGainEnabled = checked;
+            m_settings["smart_gain_enabled"] = checked;
+            saveSettings();
         });
 
         // Bit Perfect Action (streams straight to the sound card, no processing)
@@ -1101,7 +1496,11 @@ namespace Kalorite
                 // Bit Perfect is exclusive: it cannot coexist with mixing effects.
                 m_smartGainEnabled = false;
                 m_crossfadeEnabled = false;
+                m_settings["smart_gain_enabled"] = false;
+                m_settings["crossfade_enabled"] = false;
             }
+            m_settings["bit_perfect_enabled"] = checked;
+            saveSettings();
         });
 
         menu.exec(pos);

@@ -1,4 +1,5 @@
 #include "Mixer.hpp"
+#include "CddaSource.hpp"
 #include <QDebug>
 #include <cmath>
 
@@ -54,7 +55,11 @@ namespace Kalorite {
                 float curSec = 0.0f;
                 ma_sound_get_length_in_seconds(active, &lenSec);
                 ma_sound_get_cursor_in_seconds(active, &curSec);
-                float threshold = pMixer->m_gaplessEnabled ? 0.15f : pMixer->m_crossfadeDurationSec;
+                // Crossfade takes precedence when both are on: it needs the full
+                // crossfade duration of lead time, whereas gapless only needs a
+                // hair before the end. Using the gapless 0.15s here would make the
+                // transition fire far too late for the crossfade to ever run.
+                float threshold = pMixer->m_crossfadeEnabled ? pMixer->m_crossfadeDurationSec : 0.15f;
                 if (lenSec > threshold && curSec >= (lenSec - threshold)) {
                     pMixer->m_crossfadeTriggered = true;
                     QMetaObject::invokeMethod(pMixer, "playbackFinished", Qt::QueuedConnection);
@@ -136,6 +141,7 @@ namespace Kalorite {
         devConfig.playback.channels = 2;
         devConfig.sampleRate = 44100;
         devConfig.dataCallback = dataCallback;
+        devConfig.notificationCallback = deviceNotificationCallback;
         devConfig.pUserData = this;
 
         if (ma_device_init(&m_context, &devConfig, &m_device) != MA_SUCCESS) {
@@ -144,6 +150,15 @@ namespace Kalorite {
             return;
         }
         m_deviceInitialized = true;
+
+        // Cache the active device's name once, while the id is known valid.
+        {
+            ma_device_info info;
+            if (ma_context_get_device_info(&m_context, ma_device_type_playback,
+                    &m_device.playback.id, &info) == MA_SUCCESS) {
+                m_currentDeviceName = info.name;
+            }
+        }
 
         // Initialize engine config referencing the custom device
         ma_engine_config engineConfig = ma_engine_config_init();
@@ -163,6 +178,8 @@ namespace Kalorite {
     }
 
     Mixer::~Mixer() {
+        // All teardown from here on is intentional; suppress loss recovery.
+        m_expectedDeviceStop = true;
         stop();
         for (int i = 0; i < 10; ++i) {
             if (m_eqFiltersInitialized[i]) {
@@ -187,6 +204,15 @@ namespace Kalorite {
     void Mixer::setCurrent(const std::string& trackPath) {
         currentTrack = trackPath;
         m_crossfadeTriggered = false;
+
+        // Audio CD: stream sectors live off the drive through a custom data
+        // source. Always routed through the engine on a single slot (no
+        // crossfade/gapless overlap, and no bit-perfect device) so we never run
+        // two paranoia readers against one physical drive at once.
+        if (CddaSource::isCddaPath(trackPath)) {
+            setCurrentCdda(trackPath);
+            return;
+        }
 
         // Bit Perfect: bypass the engine entirely and stream the source straight
         // to a dedicated device that matches the file's native format.
@@ -237,15 +263,22 @@ namespace Kalorite {
                     ma_sound_set_volume(inSound, 0.0f);
                     ma_sound_start(inSound);
                     m_crossfadeActive = true;
-                } else {
-                    // Gapless swap, or nothing was playing: start at full volume.
+                } else if (haveOutgoing) {
+                    // Gapless swap while something is actually playing: start the
+                    // incoming track at full volume and drop the outgoing one.
                     ma_sound_set_volume(inSound, vol);
                     ma_sound_start(inSound);
-                    if (haveOutgoing) {
-                        ma_sound_stop(outSound);
-                        ma_sound_uninit(outSound);
-                        *outInit = false;
-                    }
+                    ma_sound_stop(outSound);
+                    ma_sound_uninit(outSound);
+                    *outInit = false;
+                    m_crossfadeActive = false;
+                } else {
+                    // Nothing is playing yet — this is just a track being selected
+                    // (e.g. added to the playlist). Load it into the slot but leave
+                    // it stopped; play() will start it when the user asks. Without
+                    // this, crossfade/gapless mode would auto-play on selection,
+                    // out of sync with the UI (timer stopped, showing --:--).
+                    ma_sound_set_volume(inSound, vol);
                     m_crossfadeActive = false;
                 }
             }
@@ -264,6 +297,43 @@ namespace Kalorite {
                 qDebug() << "Loaded length in seconds:" << lenSec;
             }
         }
+    }
+
+    void Mixer::setCurrentCdda(const std::string& trackPath) {
+#ifdef KALORITE_HAVE_CDDA
+        // Tear down anything currently playing (also frees a prior CD source).
+        stop();
+
+        std::string device;
+        int track = 0;
+        if (!CddaSource::parsePath(trackPath, device, track)) {
+            qWarning() << "Mixer: malformed cdda path" << QString::fromStdString(trackPath);
+            return;
+        }
+
+        auto* src = new CddaSource(device, track);
+        if (!src->isValid()) {
+            qWarning() << "Mixer: failed to open CD track" << track << "on" << device.c_str();
+            delete src;
+            return;
+        }
+
+        ma_result res = ma_sound_init_from_data_source(
+            &m_engine, src->dataSource(), 0, NULL, &m_sound1);
+        if (res != MA_SUCCESS) {
+            qWarning() << "Mixer: ma_sound_init_from_data_source failed:" << res;
+            delete src;
+            return;
+        }
+
+        m_cddaSource = src;
+        m_sound1Initialized = true;
+        m_activeSoundIndex = 1;
+        ma_sound_set_volume(&m_sound1, float(volume) / 100.0f);
+#else
+        Q_UNUSED(trackPath);
+        qWarning() << "Mixer: Audio CD support not compiled in";
+#endif
     }
 
     void Mixer::setVolume(int volume) {
@@ -360,6 +430,15 @@ namespace Kalorite {
         }
         m_activeSoundIndex = 0;
         m_crossfadeActive = false;
+
+#ifdef KALORITE_HAVE_CDDA
+        // The sound owning this data source is uninitialised above, so it is now
+        // safe to stop the producer thread and release the drive.
+        if (m_cddaSource) {
+            delete static_cast<CddaSource*>(m_cddaSource);
+            m_cddaSource = nullptr;
+        }
+#endif
     }
 
     int Mixer::getPositionMs() const {
@@ -441,57 +520,140 @@ namespace Kalorite {
     }
 
     std::string Mixer::getCurrentDeviceName() {
-        if (!m_deviceInitialized) return "";
-        ma_device_info info;
-        if (ma_context_get_device_info(&m_context, ma_device_type_playback, &m_device.playback.id, &info) == MA_SUCCESS) {
-            return info.name;
+        std::lock_guard<std::mutex> lock(m_deviceMutex);
+        return m_currentDeviceName;
+    }
+
+    std::vector<std::string> Mixer::getAudioDeviceNames() {
+        std::lock_guard<std::mutex> lock(m_deviceMutex);
+        std::vector<std::string> names;
+        ma_device_info* pInfos = NULL;
+        ma_uint32 count = 0;
+        if (ma_context_get_devices(&m_context, &pInfos, &count, NULL, NULL) == MA_SUCCESS
+            && pInfos != NULL) {
+            names.reserve(count);
+            for (ma_uint32 i = 0; i < count; ++i) names.emplace_back(pInfos[i].name);
         }
-        return "";
+        return names;
+    }
+
+    // Caller must hold m_deviceMutex. Tears down and re-creates the engine's
+    // playback device on the given id (NULL = system default).
+    bool Mixer::reinitEngineDevice(ma_device_id* pDeviceID) {
+        // Our own uninit triggers a "stopped" notification; flag it so the
+        // notification handler doesn't treat it as an unexpected device loss.
+        m_expectedDeviceStop = true;
+        if (m_deviceInitialized) {
+            ma_device_uninit(&m_device);
+            m_deviceInitialized = false;
+        }
+        m_expectedDeviceStop = false;
+
+        ma_device_config devConfig = ma_device_config_init(ma_device_type_playback);
+        devConfig.playback.format   = ma_format_f32;
+        devConfig.playback.channels = 2;
+        devConfig.sampleRate        = 44100;
+        devConfig.dataCallback      = dataCallback;
+        devConfig.notificationCallback = deviceNotificationCallback;
+        devConfig.pUserData         = this;
+        devConfig.playback.pDeviceID = pDeviceID;
+
+        if (ma_device_init(&m_context, &devConfig, &m_device) != MA_SUCCESS) {
+            qWarning() << "Failed to (re)initialize audio output device";
+            m_deviceInitialized = false;
+            m_currentDeviceName.clear();
+            return false;
+        }
+        m_deviceInitialized = true;
+
+        ma_device_info info;
+        if (ma_context_get_device_info(&m_context, ma_device_type_playback,
+                &m_device.playback.id, &info) == MA_SUCCESS) {
+            m_currentDeviceName = info.name;
+        }
+        ma_device_start(&m_device);
+        return true;
     }
 
     void Mixer::setDeviceByName(const std::string& deviceName) {
+        std::lock_guard<std::mutex> lock(m_deviceMutex);
         m_chosenDeviceName = deviceName;
         if (!m_deviceInitialized) return;
 
-        ma_device_info* pPlaybackInfos;
-        ma_uint32 playbackCount;
-        if (ma_context_get_devices(&m_context, &pPlaybackInfos, &playbackCount, NULL, NULL) == MA_SUCCESS) {
-            ma_device_id* pChosenID = NULL;
-            for (ma_uint32 i = 0; i < playbackCount; ++i) {
-                if (deviceName == pPlaybackInfos[i].name) {
-                    pChosenID = &pPlaybackInfos[i].id;
-                    break;
-                }
-            }
+        ma_device_info* pPlaybackInfos = NULL;
+        ma_uint32 playbackCount = 0;
+        if (ma_context_get_devices(&m_context, &pPlaybackInfos, &playbackCount, NULL, NULL) != MA_SUCCESS
+            || pPlaybackInfos == NULL) {
+            qWarning() << "Failed to enumerate audio output devices";
+            return;
+        }
 
-            // Re-init device with new ID
-            ma_device_uninit(&m_device);
-            ma_device_config devConfig = ma_device_config_init(ma_device_type_playback);
-            devConfig.playback.format = ma_format_f32;
-            devConfig.playback.channels = 2;
-            devConfig.sampleRate = 44100;
-            devConfig.dataCallback = dataCallback;
-            devConfig.pUserData = this;
-            devConfig.playback.pDeviceID = pChosenID;
-
-            if (ma_device_init(&m_context, &devConfig, &m_device) != MA_SUCCESS) {
-                qWarning() << "Failed to switch audio output device";
-                m_deviceInitialized = false;
-            } else {
-                m_deviceInitialized = true;
-                ma_device_start(&m_device);
+        ma_device_id* pChosenID = NULL;
+        for (ma_uint32 i = 0; i < playbackCount; ++i) {
+            if (deviceName == pPlaybackInfos[i].name) {
+                pChosenID = &pPlaybackInfos[i].id;
+                break;
             }
         }
+        reinitEngineDevice(pChosenID);
+    }
+
+    void Mixer::deviceNotificationCallback(const ma_device_notification* pNotification) {
+        if (!pNotification || !pNotification->pDevice) return;
+        Mixer* self = static_cast<Mixer*>(pNotification->pDevice->pUserData);
+        if (!self) return;
+
+        if (pNotification->type == ma_device_notification_type_stopped
+            && !self->m_expectedDeviceStop) {
+            // The device stopped on its own (e.g. it was unplugged). Never touch
+            // the device from inside this callback — hand off to the GUI thread.
+            QMetaObject::invokeMethod(self, "recoverFromDeviceLoss", Qt::QueuedConnection);
+        }
+    }
+
+    void Mixer::recoverFromDeviceLoss() {
+        std::lock_guard<std::mutex> lock(m_deviceMutex);
+
+        if (m_bitPerfectEnabled) {
+            // Bit-perfect owns its own device; rebuild it on the current track.
+            if (!m_bpTrackPath.empty()) {
+                bool wasPlaying = m_bpPlaying;
+                startBitPerfect(m_bpTrackPath, wasPlaying);
+            }
+            return;
+        }
+
+        // Try the user's chosen device again; if it's gone (typical on unplug),
+        // fall back to the system default so playback can carry on.
+        ma_device_id* pChosenID = NULL;
+        ma_device_info* pInfos = NULL;
+        ma_uint32 count = 0;
+        if (!m_chosenDeviceName.empty()
+            && ma_context_get_devices(&m_context, &pInfos, &count, NULL, NULL) == MA_SUCCESS
+            && pInfos != NULL) {
+            for (ma_uint32 i = 0; i < count; ++i) {
+                if (m_chosenDeviceName == pInfos[i].name) { pChosenID = &pInfos[i].id; break; }
+            }
+        }
+        reinitEngineDevice(pChosenID);
     }
 
     void Mixer::setEqBand(int bandIndex, float gainDb) {
         if (bandIndex < 0 || bandIndex >= 10) return;
         std::lock_guard<std::mutex> lock(m_eqMutex);
         m_eqGains[bandIndex] = gainDb;
+        float frequencies[10] = {31.0f, 62.0f, 125.0f, 250.0f, 500.0f, 1000.0f, 2000.0f, 4000.0f, 8000.0f, 16000.0f};
         if (m_eqFiltersInitialized[bandIndex]) {
-            float frequencies[10] = {31.0f, 62.0f, 125.0f, 250.0f, 500.0f, 1000.0f, 2000.0f, 4000.0f, 8000.0f, 16000.0f};
             ma_peak2_config config = ma_peak2_config_init(ma_format_f32, 2, 44100, gainDb, 1.0, frequencies[bandIndex]);
             ma_peak2_reinit(&config, &m_eqFilters[bandIndex]);
+        }
+        // Keep the bit-perfect EQ filter (matched to the source's native
+        // rate/channels) in sync so the change is heard in bit-perfect mode too.
+        std::lock_guard<std::mutex> bpLock(m_bpMutex);
+        if (m_bpEqFiltersInitialized[bandIndex]) {
+            ma_peak2_config bpCfg = ma_peak2_config_init(ma_format_f32, m_bpChannels,
+                m_bpSampleRate, gainDb, 1.0, frequencies[bandIndex]);
+            ma_peak2_reinit(&bpCfg, &m_bpEqFilters[bandIndex]);
         }
     }
 
@@ -505,8 +667,11 @@ namespace Kalorite {
         m_doubleBufferingEnabled = enabled;
 
         // Reinitialize device with updated buffer size config
+        std::lock_guard<std::mutex> lock(m_deviceMutex);
         if (m_deviceInitialized) {
+            m_expectedDeviceStop = true;
             ma_device_uninit(&m_device);
+            m_expectedDeviceStop = false;
             m_deviceInitialized = false;
 
             ma_device_config devConfig = ma_device_config_init(ma_device_type_playback);
@@ -514,11 +679,26 @@ namespace Kalorite {
             devConfig.playback.channels = 2;
             devConfig.sampleRate = 44100;
             devConfig.dataCallback = dataCallback;
+            devConfig.notificationCallback = deviceNotificationCallback;
             devConfig.pUserData = this;
+
+            // Preserve the user's chosen output device across the reinit.
+            ma_device_info* pInfos = NULL;
+            ma_uint32 count = 0;
+            if (!m_chosenDeviceName.empty()
+                && ma_context_get_devices(&m_context, &pInfos, &count, NULL, NULL) == MA_SUCCESS
+                && pInfos != NULL) {
+                for (ma_uint32 i = 0; i < count; ++i) {
+                    if (m_chosenDeviceName == pInfos[i].name) {
+                        devConfig.playback.pDeviceID = &pInfos[i].id;
+                        break;
+                    }
+                }
+            }
 
             if (enabled) {
                 // Low latency / Double buffering: explicitly set a small buffer period
-                devConfig.periodSizeInFrames = 256; 
+                devConfig.periodSizeInFrames = 256;
                 devConfig.periods = 2; // Double buffering
             }
 
@@ -555,6 +735,56 @@ namespace Kalorite {
         ma_uint64 framesRead = 0;
         ma_decoder_read_pcm_frames(&pMixer->m_bpDecoder, pOutput, frameCount, &framesRead);
 
+        // Optional volume + EQ. Only touch the samples if the user actually moved
+        // a control, so an untouched stream (100% volume, flat/off EQ) stays truly
+        // bit-perfect and reaches the device byte-for-byte.
+        if (framesRead > 0) {
+            const float vol = float(pMixer->volume) / 100.0f;
+            const bool doVol = pMixer->volume != 100;
+            bool anyGain = false;
+            if (pMixer->m_eqEnabled) {
+                for (int i = 0; i < 10; ++i) {
+                    if (std::fabs(pMixer->m_eqGains[i]) > 0.01f) { anyGain = true; break; }
+                }
+            }
+            const bool doEq = anyGain;
+
+            if (doVol || doEq) {
+                const ma_uint32 ch = pMixer->m_bpChannels;
+                const ma_uint64 sampleCount = framesRead * ch;
+
+                // Get a float view of the frames: in place if the source is
+                // already f32, otherwise convert into the scratch buffer.
+                float* pf;
+                const bool needConvert = (pMixer->m_bpFormat != ma_format_f32);
+                if (needConvert) {
+                    if (pMixer->m_bpFloatBuf.size() < sampleCount)
+                        pMixer->m_bpFloatBuf.resize(sampleCount);
+                    pf = pMixer->m_bpFloatBuf.data();
+                    ma_convert_pcm_frames_format(pf, ma_format_f32, pOutput,
+                        pMixer->m_bpFormat, framesRead, ch, ma_dither_mode_none);
+                } else {
+                    pf = static_cast<float*>(pOutput);
+                }
+
+                if (doEq) {
+                    for (int i = 0; i < 10; ++i) {
+                        if (pMixer->m_bpEqFiltersInitialized[i]) {
+                            ma_peak2_process_pcm_frames(&pMixer->m_bpEqFilters[i], pf, pf, framesRead);
+                        }
+                    }
+                }
+                if (doVol) {
+                    for (ma_uint64 k = 0; k < sampleCount; ++k) pf[k] *= vol;
+                }
+
+                if (needConvert) {
+                    ma_convert_pcm_frames_format(pOutput, pMixer->m_bpFormat, pf,
+                        ma_format_f32, framesRead, ch, ma_dither_mode_triangle);
+                }
+            }
+        }
+
         // Read-only visualiser capture (only when the native format is f32 so we
         // never touch or convert the audio that goes to the device).
         if (pDevice->playback.format == ma_format_f32 && framesRead > 0) {
@@ -588,12 +818,20 @@ namespace Kalorite {
         m_bpDecoderInitialized = true;
         m_bpTrackPath = trackPath;
 
+        // Remember the native format so the optional volume/EQ stage can convert
+        // to/from f32, and build an EQ filter set matched to this rate/channels.
+        m_bpFormat     = m_bpDecoder.outputFormat;
+        m_bpChannels   = m_bpDecoder.outputChannels;
+        m_bpSampleRate = m_bpDecoder.outputSampleRate;
+        initBitPerfectEq();
+
         // Match the device exactly to the decoder's native output.
         ma_device_config devConfig = ma_device_config_init(ma_device_type_playback);
         devConfig.playback.format   = m_bpDecoder.outputFormat;
         devConfig.playback.channels = m_bpDecoder.outputChannels;
         devConfig.sampleRate        = m_bpDecoder.outputSampleRate;
         devConfig.dataCallback      = bitPerfectDataCallback;
+        devConfig.notificationCallback = deviceNotificationCallback;
         devConfig.pUserData         = this;
 
         // Honour the user's chosen output device if one was selected.
@@ -626,17 +864,44 @@ namespace Kalorite {
         return true;
     }
 
+    // Build (or rebuild) the bit-perfect EQ filters using the current source's
+    // native sample rate / channel count and the current per-band gains.
+    void Mixer::initBitPerfectEq() {
+        static const float frequencies[10] = {31.0f, 62.0f, 125.0f, 250.0f, 500.0f,
+                                              1000.0f, 2000.0f, 4000.0f, 8000.0f, 16000.0f};
+        for (int i = 0; i < 10; ++i) {
+            if (m_bpEqFiltersInitialized[i]) {
+                ma_peak2_uninit(&m_bpEqFilters[i], NULL);
+                m_bpEqFiltersInitialized[i] = false;
+            }
+            ma_peak2_config cfg = ma_peak2_config_init(ma_format_f32, m_bpChannels,
+                m_bpSampleRate, m_eqGains[i], 1.0, frequencies[i]);
+            if (ma_peak2_init(&cfg, NULL, &m_bpEqFilters[i]) == MA_SUCCESS) {
+                m_bpEqFiltersInitialized[i] = true;
+            }
+        }
+    }
+
     void Mixer::stopBitPerfect() {
         // Uninit the device first: this stops and joins the audio thread, so no
         // callback can be running afterwards and it is safe to free the decoder.
         if (m_bpDeviceInitialized) {
+            // Flag our intentional stop so the notification handler ignores it.
+            m_expectedDeviceStop = true;
             ma_device_uninit(&m_bpDevice);
+            m_expectedDeviceStop = false;
             m_bpDeviceInitialized = false;
         }
         m_bpPlaying = false;
         if (m_bpDecoderInitialized) {
             ma_decoder_uninit(&m_bpDecoder);
             m_bpDecoderInitialized = false;
+        }
+        for (int i = 0; i < 10; ++i) {
+            if (m_bpEqFiltersInitialized[i]) {
+                ma_peak2_uninit(&m_bpEqFilters[i], NULL);
+                m_bpEqFiltersInitialized[i] = false;
+            }
         }
     }
 
@@ -652,7 +917,11 @@ namespace Kalorite {
             // Tear down the engine path and silence its device.
             stop();
             if (m_deviceInitialized) {
+                // Intentional stop: don't let the notification handler treat it
+                // as an unexpected device loss and try to recover.
+                m_expectedDeviceStop = true;
                 ma_device_stop(&m_device);
+                m_expectedDeviceStop = false;
             }
 
             m_bitPerfectEnabled = true;

@@ -13,9 +13,45 @@
     "--socket=pulseaudio",
     "--talk-name=com.canonical.Unity",
     "--device=dri",
+    "--device=all",
     "--filesystem=xdg-download"
   ],
   "modules": [
+    {
+      "name": "libcdio",
+      "buildsystem": "autotools",
+      "config-opts": [
+        "--disable-static",
+        "--disable-example-progs",
+        "--without-cd-drive",
+        "--without-cd-info",
+        "--without-cd-read",
+        "--without-cdda-player",
+        "--without-iso-info",
+        "--without-iso-read"
+      ],
+      "cleanup": ["/bin", "/share/info", "/share/man"],
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://ftp.gnu.org/gnu/libcdio/libcdio-2.1.0.tar.bz2",
+          "sha256": "8550e9589dbd594bfac93b81ecf129b1dc9d0d51e90f9696f1b2f9b2af32712b"
+        }
+      ]
+    },
+    {
+      "name": "libcdio-paranoia",
+      "buildsystem": "autotools",
+      "config-opts": ["--disable-static", "--disable-example-progs"],
+      "cleanup": ["/bin", "/share/info", "/share/man"],
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://ftp.gnu.org/gnu/libcdio/libcdio-paranoia-10.2+2.0.2.tar.bz2",
+          "sha256": "186892539dedd661276014d71318c8c8f97ecb1250a86625256abd4defbf0d0c"
+        }
+      ]
+    },
     {
       "name": "Kalorite",
       "buildsystem": "cmake-ninja",
