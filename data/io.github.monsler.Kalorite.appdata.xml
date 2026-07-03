@@ -34,14 +34,17 @@
   </screenshots>
 
   <releases>
-    <release version="3.0.0" date="2025-12-18">
+    <release version="3.0.0" date="2026-07-03">
     <description>
       <p>Thanks everyone for using Kalorite! This is the biggest update of our app yet:</p>
       <ul>
-        <li>Fix of progress bar in sound downloader</li>
-        <li>Fix of sound downloader cancel button</li>
-        <li>Fix of memory leak in mixer</li>
+        <li>Advanced luajit plugin system</li>
+        <li>Audio visualizing</li>
+        <li>Playlist & overall application look rehaul</li>
+        <li>Migration to miniaudio engine backend</li>
+        <li>Right click on visualizator to open a context menu with audio bus selection, crossfading, bit perfect audio delivery, smart volume control and double buffering.</li>
       </ul>
+      <p>Report any found bugs to GitHub.</p>
     </description>
     </release>
   </releases>
