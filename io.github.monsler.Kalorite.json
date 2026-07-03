@@ -24,7 +24,7 @@
           "type": "git",
           "url": "https://github.com/Monsler/Kalorite",
           "tag": "v3.0.1",
-          "commit": "91c0b0181fa8433bc1c20758f4d4fc9dc24b788e"
+          "commit": "c1e996aaec139efb75814689c47eea2250fe0a63"
         }
       ],
       "config-opts": ["-DCMAKE_BUILD_TYPE=Release"]
