@@ -657,7 +657,7 @@ namespace Kalorite
 
     void MainWindow::setCurrentSong(const std::string path) {
         this->currentAudio = path;
-        setWindowTitle(QString::fromStdString(std::format("Kalorite - {}", this->currentAudio)));
+        setWindowTitle(QStringLiteral("Kalorite - %1").arg(QString::fromStdString(this->currentAudio)));
         this->mixer->setCurrent(path);
         this->winampDisplay->loadAudioFile(QString::fromStdString(path));
         // Force track length to be read and immediately update list widget item duration
