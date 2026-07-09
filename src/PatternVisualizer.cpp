@@ -130,13 +130,8 @@ void PatternVisualizer::renderFrame() {
 
     QPainter p(&m_canvas);
     p.setRenderHint(QPainter::Antialiasing, false);
-    // Smooth interpolation on the feedback copy: nearest-neighbour scaling of
-    // the previous frame accumulates into blocky, square trailing artifacts.
     p.setRenderHint(QPainter::SmoothPixmapTransform, true);
 
-    // Feedback pass: redraw the previous frame shrunk toward the center by
-    // ~2.5% — the shrinking alone produces the trailing pattern. A slight
-    // opacity falloff keeps pixels from accumulating forever at the center.
     QImage prev = m_canvas.copy();
     p.fillRect(QRect(QPoint(0, 0), size()), Qt::black);
     const double shrink = 0.975;
@@ -173,7 +168,6 @@ void PatternVisualizer::drawMode(QPainter& p, int mode, double weight) {
     }
 }
 
-// Mode 0: rotating spiral of dots whose radius pulses with the bands.
 void PatternVisualizer::drawSpiral(QPainter& p, double weight) {
     double cx = width() / 2.0, cy = height() / 2.0;
     double maxR = std::min(cx, cy) * 0.95;
@@ -411,8 +405,6 @@ void PatternVisualizer::drawStarburst(QPainter& p, double weight) {
     p.restore();
 }
 
-// Mode 7: Flow field — a grid of short curved streaks following a swirling
-// noise-like vector field, giving a drifting, organic psychedelic flow.
 void PatternVisualizer::drawFlowField(QPainter& p, double weight) {
     double w = width(), h = height();
     const int cols = 14, rows = 10;

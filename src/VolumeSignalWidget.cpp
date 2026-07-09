@@ -59,8 +59,13 @@ void VolumeSignalWidget::paintEvent(QPaintEvent* event) {
         int by = h - barHeight - 2;
 
         bool isActive = (i < activeBarsCount && m_volume > 0);
-
-        QColor barColor = isActive ? QColor(255, 255, 255, 240) : QColor(255, 255, 255, 50);
+        QColor barColor;
+        if (m_isSystemTheme) {
+            barColor = isActive ? QColor(255, 255, 255, 240) : QColor(255, 255, 255, 50);
+        } else {
+            barColor = isActive ? QColor(m_accentColor.red(), m_accentColor.green(), m_accentColor.blue(), 240)
+                                : QColor(m_accentColor.red(), m_accentColor.green(), m_accentColor.blue(), 50);
+        }
         
         painter.save();
         painter.setPen(Qt::NoPen);
@@ -90,6 +95,12 @@ void VolumeSignalWidget::updateVolumeFromPos(int x) {
     if (ratio > 1.0) ratio = 1.0;
     int vol = std::round(ratio * 100);
     setVolume(vol);
+}
+
+void VolumeSignalWidget::setThemeAccent(const QColor& color, bool isSystem) {
+    m_accentColor = color;
+    m_isSystemTheme = isSystem;
+    update();
 }
 
 } // namespace Kalorite

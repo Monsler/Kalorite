@@ -94,6 +94,7 @@ namespace Kalorite
         void onContextMenuWinampDisplay(const QPoint &pos);
         void openAddPluginDialog();
         void openAboutDialog();
+        void openAddSkinDialog();
 
         private:
 
@@ -179,6 +180,12 @@ namespace Kalorite
         WinampDisplay* winampDisplay;
         PatternVisualizer* patternVisualizer;
         QAction* showPatternVizAction = nullptr;
+
+        QString m_currentSkinName = "system";
+        QPalette m_defaultPalette;
+        void applySkin(const QString& skinName);
+        void applyDarkPalette(const QColor& accentColor, const QColor& bgColor, const QColor& surfaceColor);
+        void populateSkinsMenu(QMenu* menu);
 
         // General-purpose persisted settings (loaded at startup, saved on change
         // and on close). Keep new options here so everything lands in one file.

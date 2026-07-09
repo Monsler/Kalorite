@@ -716,12 +716,6 @@ namespace Kalorite {
         return m_lastSamples;
     }
 
-    // --- Bit Perfect ---------------------------------------------------------
-    // Bit Perfect streams the decoded frames straight to a dedicated device that
-    // matches the source's native format, sample rate and channel count. No
-    // engine, no EQ, no resampling, no volume scaling and no smart gain are
-    // applied - the bytes reach the sound card untouched.
-
     void Mixer::bitPerfectDataCallback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount) {
         (void)pInput;
         Mixer* pMixer = static_cast<Mixer*>(pDevice->pUserData);

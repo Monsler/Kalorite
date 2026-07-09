@@ -3,10 +3,12 @@
 #include "CddaSource.hpp"
 #include "PluginManager.hpp"
 #include <QInputDialog>
+#include <QColorDialog>
 #include <fstream>
 #include <qaction.h>
 #include <QActionGroup>
 #include <qapplication.h>
+#include <qicon.h>
 #include <qnamespace.h>
 #include <QDir>
 #include <QStandardPaths>
@@ -119,6 +121,7 @@ private:
 namespace Kalorite
 {
     MainWindow::MainWindow() {
+        m_defaultPalette = QApplication::palette();
         loadSettings();
         resize(500, 150);
         setWindowTitle("Kalorite");
@@ -153,6 +156,11 @@ namespace Kalorite
         addPluginAction->setIcon(QIcon::fromTheme("insert-object"));
         connect(addPluginAction, &QAction::triggered, this, &MainWindow::openAddPluginDialog);
 
+
+        QAction* addSkinAction = new QAction(tr("Add Skin..."), this);
+        addSkinAction->setIcon(QIcon::fromTheme("document-new"));
+        this->fileMenu->addAction(addSkinAction);
+        connect(addSkinAction, &QAction::triggered, this, &MainWindow::openAddSkinDialog);
 
         QAction *exitAction = new QAction(tr("&Exit"), this);
         this->fileMenu->addAction(exitAction);
@@ -264,6 +272,15 @@ namespace Kalorite
         aboutAction->setIcon(QIcon::fromTheme("help-about"));
         helpMenu->addAction(aboutAction);
         connect(aboutAction, &QAction::triggered, this, &MainWindow::openAboutDialog);
+
+        QAction* telegramAction = new QAction(tr("Telegram Channel"), this);
+        QIcon telegramPixmap(":/icons/telegram.svg");
+        telegramPixmap.setIsMask(true);
+        telegramAction->setIcon(telegramPixmap);
+        helpMenu->addAction(telegramAction);
+        connect(telegramAction, &QAction::triggered, this, []() {
+            QDesktopServices::openUrl(QUrl("https://t.me/kalorite_app"));
+        });
 
         setMenuBar(this->currentMenuBar);
         if (this->layout()) {
@@ -407,6 +424,9 @@ namespace Kalorite
         for (int i = 0; i < bands.size(); ++i) {
             const QString& band = bands[i];
             QVBoxLayout* sliderCol = new QVBoxLayout();
+            sliderCol->setContentsMargins(0, 0, 0, 0);
+            sliderCol->setSpacing(4);
+            
             QSlider* slider = new QSlider(Qt::Vertical, this);
             slider->setRange(0, 100);
             slider->setValue(50); // middle by default
@@ -417,8 +437,8 @@ namespace Kalorite
             bandLabel->setAlignment(Qt::AlignCenter);
             bandLabel->setStyleSheet("font-size: 9px;");
 
-            sliderCol->addWidget(slider);
-            sliderCol->addWidget(bandLabel);
+            sliderCol->addWidget(slider, 0, Qt::AlignHCenter);
+            sliderCol->addWidget(bandLabel, 0, Qt::AlignHCenter);
             eqSlidersLayout->addLayout(sliderCol);
             eqSliders.append(slider);
 
@@ -803,6 +823,10 @@ namespace Kalorite
             std::string dev = m_settings.value("audio_device", std::string());
             if (!dev.empty()) mixer->setDeviceByName(dev);
         }
+
+        // Load and apply the color skin
+        m_currentSkinName = QString::fromStdString(m_settings.value("skin", "system"));
+        applySkin(m_currentSkinName);
     }
 
     void MainWindow::closeEvent(QCloseEvent* event) {
@@ -904,7 +928,7 @@ namespace Kalorite
         QLabel* durationLabel = new QLabel(dur.isEmpty() ? QStringLiteral("--:--") : dur);
         durationLabel->setObjectName("durationLabel");
         durationLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        durationLabel->setStyleSheet("color: #ffffff; font-family: monospace;");
+        durationLabel->setStyleSheet("font-family: monospace;");
 
         layout->addWidget(nameLabel);
         layout->addWidget(durationLabel);
@@ -1445,6 +1469,9 @@ namespace Kalorite
             });
         }
 
+        QMenu* skinsMenu = menu.addMenu(tr("Skins"));
+        populateSkinsMenu(skinsMenu);
+
         // Crossfade Action
         QAction* crossfadeAct = menu.addAction(tr("Enable Crossfade"));
         crossfadeAct->setCheckable(true);
@@ -1504,5 +1531,177 @@ namespace Kalorite
         });
 
         menu.exec(pos);
+    }
+
+    void MainWindow::applyDarkPalette(const QColor& accentColor, const QColor& bgColor, const QColor& surfaceColor) {
+        QPalette palette;
+        palette.setColor(QPalette::Window, bgColor);
+        palette.setColor(QPalette::WindowText, QColor(220, 220, 220));
+        palette.setColor(QPalette::Base, surfaceColor);
+        palette.setColor(QPalette::AlternateBase, bgColor);
+        palette.setColor(QPalette::ToolTipBase, QColor(30, 30, 30));
+        palette.setColor(QPalette::ToolTipText, QColor(220, 220, 220));
+        palette.setColor(QPalette::Text, QColor(220, 220, 220));
+        palette.setColor(QPalette::Button, surfaceColor);
+        palette.setColor(QPalette::ButtonText, QColor(220, 220, 220));
+        palette.setColor(QPalette::BrightText, Qt::red);
+        palette.setColor(QPalette::Link, accentColor);
+        palette.setColor(QPalette::Highlight, accentColor);
+        palette.setColor(QPalette::HighlightedText, Qt::white);
+        
+        // Disabled colors
+        palette.setColor(QPalette::Disabled, QPalette::WindowText, QColor(100, 100, 100));
+        palette.setColor(QPalette::Disabled, QPalette::Text, QColor(100, 100, 100));
+        palette.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(100, 100, 100));
+        palette.setColor(QPalette::Disabled, QPalette::Base, QColor(20, 20, 20));
+        palette.setColor(QPalette::Disabled, QPalette::Button, QColor(20, 20, 20));
+        
+        QApplication::setPalette(palette);
+    }
+
+    void MainWindow::applySkin(const QString& skinName) {
+        if (skinName == "system") {
+            // Restore default system theme
+            QApplication::setPalette(m_defaultPalette);
+            this->setStyleSheet("");
+            
+            // Inform visualizers
+            winampDisplay->setThemeAccent(QColor(50, 240, 50), true);
+            volumeSignal->setThemeAccent(QColor(255, 255, 255), true);
+            return;
+        }
+
+        // Custom skins reside in the config/skins directory
+        QString appConfigDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+        if (appConfigDir.isEmpty()) appConfigDir = QDir::homePath() + "/.config/kalorite";
+        QString customPath = appConfigDir + "/skins/" + skinName + ".qss";
+        
+        QString qss;
+        QFile file(customPath);
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            qss = QString::fromUtf8(file.readAll());
+        }
+        
+        // Load the stored accent color for this specific skin
+        QString accentStr = "#00dcff"; // default cyan accent
+        if (m_settings.contains("skin_accents") && m_settings["skin_accents"].is_object()) {
+            std::string key = skinName.toStdString();
+            if (m_settings["skin_accents"].contains(key)) {
+                accentStr = QString::fromStdString(m_settings["skin_accents"][key].get<std::string>());
+            }
+        }
+        
+        QColor accent(accentStr);
+        if (!accent.isValid()) accent = QColor(0, 220, 255);
+        
+        applyDarkPalette(accent, QColor("#121212"), QColor("#1e1e1e"));
+        this->setStyleSheet(qss);
+        
+        winampDisplay->setThemeAccent(accent, false);
+        volumeSignal->setThemeAccent(accent, false);
+    }
+
+    void MainWindow::populateSkinsMenu(QMenu* menu) {
+        menu->clear();
+        
+        // 1. System Skin
+        QAction* sysAct = menu->addAction(tr("System"));
+        sysAct->setCheckable(true);
+        sysAct->setChecked(m_currentSkinName == "system");
+        connect(sysAct, &QAction::triggered, [this]() {
+            m_currentSkinName = "system";
+            applySkin(m_currentSkinName);
+            m_settings["skin"] = "system";
+            saveSettings();
+        });
+        
+        // 2. Custom Skins from config/skins directory
+        QString appConfigDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+        if (appConfigDir.isEmpty()) appConfigDir = QDir::homePath() + "/.config/kalorite";
+        QString skinsDir = appConfigDir + "/skins";
+        
+        QDir dir(skinsDir);
+        if (dir.exists()) {
+            QStringList filters;
+            filters << "*.qss";
+            QStringList fileList = dir.entryList(filters, QDir::Files);
+            
+            if (!fileList.isEmpty()) {
+                menu->addSeparator();
+                for (const QString& fileName : fileList) {
+                    QString baseName = QFileInfo(fileName).baseName();
+                    
+                    // Nice display name: replace underscores/dashes with spaces, capitalize
+                    QString displayName = baseName;
+                    displayName.replace('_', ' ').replace('-', ' ');
+                    if (!displayName.isEmpty()) {
+                        displayName[0] = displayName[0].toUpper();
+                    }
+                    
+                    QAction* act = menu->addAction(displayName);
+                    act->setCheckable(true);
+                    act->setChecked(m_currentSkinName == baseName);
+                    connect(act, &QAction::triggered, [this, baseName]() {
+                        m_currentSkinName = baseName;
+                        applySkin(m_currentSkinName);
+                        m_settings["skin"] = baseName.toStdString();
+                        saveSettings();
+                    });
+                }
+            }
+        }
+    }
+
+    void MainWindow::openAddSkinDialog() {
+        QString fileName = QFileDialog::getOpenFileName(this,
+            tr("Open QSS Skin File"),
+            QDir::homePath(),
+            tr("Stylesheet Files (*.qss);;All Files (*.*)"));
+            
+        if (fileName.isEmpty()) return;
+        
+        // Extract base name
+        QString baseName = QFileInfo(fileName).baseName();
+        if (baseName.isEmpty() || baseName.toLower() == "system") {
+            QMessageBox::warning(this, tr("Add Skin..."), tr("Invalid skin name."));
+            return;
+        }
+        
+        // Ask for accent color
+        QColor accent = QColorDialog::getColor(Qt::cyan, this, tr("Select Accent Color for Custom Skin"));
+        if (!accent.isValid()) return; // User canceled accent selection
+        
+        // Copy stylesheet file to kalorite app config dir under skins/
+        QString appConfigDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+        if (appConfigDir.isEmpty()) appConfigDir = QDir::homePath() + "/.config/kalorite";
+        QString skinsDir = appConfigDir + "/skins";
+        QDir().mkpath(skinsDir);
+        
+        QString destPath = skinsDir + "/" + baseName + ".qss";
+        if (QFile::exists(destPath)) {
+            // Confirm overwrite
+            auto button = QMessageBox::question(this, tr("Add Skin..."),
+                tr("A skin named \"%1\" already exists. Overwrite?").arg(baseName),
+                QMessageBox::Yes | QMessageBox::No);
+            if (button == QMessageBox::No) return;
+            QFile::remove(destPath);
+        }
+        
+        if (QFile::copy(fileName, destPath)) {
+            // Save settings
+            m_settings["skin"] = baseName.toStdString();
+            if (!m_settings.contains("skin_accents") || !m_settings["skin_accents"].is_object()) {
+                m_settings["skin_accents"] = nlohmann::json::object();
+            }
+            m_settings["skin_accents"][baseName.toStdString()] = accent.name().toStdString();
+            saveSettings();
+            
+            m_currentSkinName = baseName;
+            applySkin(baseName);
+            
+            QMessageBox::information(this, tr("Add Skin..."), tr("Skin added successfully."));
+        } else {
+            QMessageBox::warning(this, tr("Add Skin..."), tr("Failed to copy skin file."));
+        }
     }
 } // namespace Kalorite

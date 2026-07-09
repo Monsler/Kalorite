@@ -328,8 +328,11 @@ void WinampDisplay::drawRetroDisplay(QPainter& painter) {
         .arg(ms, 2, 10, QChar('0'));
 
     // Draw dark shadow text behind for pixel LCD effect
-    drawPixelText(painter, "88:88:88", 15, 12, QColor(20, 32, 20), 3);
-    drawPixelText(painter, timeStr, 15, 12, QColor(50, 240, 50), 3);
+    QColor timeShadowColor = m_isSystemTheme ? QColor(20, 32, 20) : QColor(m_accentColor.red() * 0.1, m_accentColor.green() * 0.1, m_accentColor.blue() * 0.1);
+    QColor timeColor = m_isSystemTheme ? QColor(50, 240, 50) : m_accentColor;
+
+    drawPixelText(painter, "88:88:88", 15, 12, timeShadowColor, 3);
+    drawPixelText(painter, timeStr, 15, 12, timeColor, 3);
 
     // Extra labels (KBPS, KHZ, MONO/STEREO)
     int channels = m_mixer ? m_mixer->getSourceChannels() : 0;
@@ -343,8 +346,8 @@ void WinampDisplay::drawRetroDisplay(QPainter& painter) {
     // value was painted over the dim label at the same position, so the KBPS /
     // KHZ captions were hidden underneath the digits.
     const int glyphW = 6;
-    const QColor valueColor(50, 240, 50);
-    const QColor unitColor(20, 120, 20);
+    const QColor valueColor = m_isSystemTheme ? QColor(50, 240, 50) : m_accentColor;
+    const QColor unitColor = m_isSystemTheme ? QColor(20, 120, 20) : QColor(m_accentColor.red() * 0.4, m_accentColor.green() * 0.4, m_accentColor.blue() * 0.4);
     int x = 195;
     drawPixelText(painter, kbpsStr, x, 12, valueColor, 1);
     x += (kbpsStr.length() + 1) * glyphW;      // number + one space
@@ -354,11 +357,14 @@ void WinampDisplay::drawRetroDisplay(QPainter& painter) {
     x += (khzStr.length() + 1) * glyphW;
     drawPixelText(painter, "KHZ", x, 12, unitColor, 1);
 
-    drawPixelText(painter, "MONO  STEREO", 195, 23, QColor(20, 32, 20), 1);
+    QColor stereoShadowColor = m_isSystemTheme ? QColor(20, 32, 20) : QColor(m_accentColor.red() * 0.1, m_accentColor.green() * 0.1, m_accentColor.blue() * 0.1);
+    QColor stereoColor = m_isSystemTheme ? QColor(20, 200, 20) : m_accentColor;
+
+    drawPixelText(painter, "MONO  STEREO", 195, 23, stereoShadowColor, 1);
     if (channels == 1) {
-        drawPixelText(painter, "MONO", 195, 23, QColor(20, 200, 20), 1);
+        drawPixelText(painter, "MONO", 195, 23, stereoColor, 1);
     } else if (channels >= 2) {
-        drawPixelText(painter, "      STEREO", 195, 23, QColor(20, 200, 20), 1);
+        drawPixelText(painter, "      STEREO", 195, 23, stereoColor, 1);
     }
 
     // 3. Draw Pixel Visualizer
@@ -393,7 +399,7 @@ void WinampDisplay::drawRetroDisplay(QPainter& painter) {
             } else if (s > totalSegments * 0.5) {
                 col = QColor(240, 240, 50); // Yellow/Amber
             } else {
-                col = QColor(50, 240, 50); // Green
+                col = m_isSystemTheme ? QColor(50, 240, 50) : m_accentColor; // Theme Accent!
             }
 
             // Draw inactive grid placeholder
@@ -409,7 +415,8 @@ void WinampDisplay::drawRetroDisplay(QPainter& painter) {
         if (peakSegment > 0 && peakSegment <= totalSegments) {
             int py = startY + visHeight - peakSegment * 3 - 2;
             QColor col = (peakSegment > totalSegments * 0.8) ? QColor(240, 50, 50) : 
-                         ((peakSegment > totalSegments * 0.5) ? QColor(240, 240, 50) : QColor(50, 240, 50));
+                         ((peakSegment > totalSegments * 0.5) ? QColor(240, 240, 50) : 
+                          (m_isSystemTheme ? QColor(50, 240, 50) : m_accentColor));
             painter.fillRect(bx, py, barWidth, 1, col.lighter(120));
         }
     }
@@ -459,11 +466,17 @@ void WinampDisplay::drawModernDisplay(QPainter& painter) {
     const double step = double(visWidth) / NUM_BANDS;
     int barWidth = std::max(4, int(step) - 4);
 
-    // Phosphor green gradients for retro CRT feel
+    // Phosphor gradients for retro CRT feel
     QLinearGradient barGrad(0, startY + visHeight, 0, startY);
-    barGrad.setColorAt(0.0, QColor(0, 180, 80));
-    barGrad.setColorAt(0.8, QColor(0, 255, 128));
-    barGrad.setColorAt(1.0, QColor(140, 255, 180));
+    if (m_isSystemTheme) {
+        barGrad.setColorAt(0.0, QColor(0, 180, 80));
+        barGrad.setColorAt(0.8, QColor(0, 255, 128));
+        barGrad.setColorAt(1.0, QColor(140, 255, 180));
+    } else {
+        barGrad.setColorAt(0.0, m_accentColor.darker(150));
+        barGrad.setColorAt(0.8, m_accentColor);
+        barGrad.setColorAt(1.0, m_accentColor.lighter(150));
+    }
 
     for (int i = 0; i < NUM_BANDS; ++i) {
         const Band& b = m_bands[i];
@@ -483,7 +496,8 @@ void WinampDisplay::drawModernDisplay(QPainter& painter) {
         int peakY = startY + visHeight - std::round(b.peak * visHeight);
         if (peakY < startY + visHeight) {
             painter.save();
-            painter.setPen(QPen(QColor(180, 255, 220), 1.5, Qt::SolidLine, Qt::RoundCap));
+            QColor peakColor = m_isSystemTheme ? QColor(180, 255, 220) : m_accentColor.lighter(150);
+            painter.setPen(QPen(peakColor, 1.5, Qt::SolidLine, Qt::RoundCap));
             painter.drawLine(bx, peakY, bx + barWidth, peakY);
             painter.restore();
         }
@@ -517,6 +531,12 @@ void WinampDisplay::drawModernDisplay(QPainter& painter) {
     painter.setClipPath(path);
     painter.drawRect(0, 0, width(), height());
     painter.restore();
+}
+
+void WinampDisplay::setThemeAccent(const QColor& color, bool isSystem) {
+    m_accentColor = color;
+    m_isSystemTheme = isSystem;
+    update();
 }
 
 } // namespace Kalorite

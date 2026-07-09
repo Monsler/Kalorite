@@ -3,4 +3,7 @@
 <qresource prefix="/audio">
     <file alias="greeting.mp3">data/greeting.mp3</file>
 </qresource>
+<qresource prefix="/icons">
+    <file alias="telegram.svg">data/icons/telegram.svg</file>
+</qresource>
 </RCC>

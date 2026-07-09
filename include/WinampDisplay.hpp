@@ -23,6 +23,7 @@ namespace Kalorite {
         void setVolume(int volume);
         void setModernMode(bool modern);
         bool isModernMode() const { return m_modernMode; }
+        void setThemeAccent(const QColor& color, bool isSystem);
 
     signals:
         void modeChanged(bool modern);
@@ -73,6 +74,8 @@ namespace Kalorite {
         };
         QVector<Band> m_bands;
         double m_phase = 0.0;
+        QColor m_accentColor = QColor(50, 240, 50);
+        bool m_isSystemTheme = true;
     };
 
 } // namespace Kalorite

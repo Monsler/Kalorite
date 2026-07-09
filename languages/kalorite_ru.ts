@@ -229,6 +229,10 @@
         <translation>Включить Bit Perfect</translation>
     </message>
     <message>
+        <source>Skins</source>
+        <translation type="unfinished">Скины</translation>
+    </message>
+    <message>
         <source>Show Pattern Visualizer</source>
         <translation>Показать визуализатор паттернов</translation>
     </message>
@@ -251,6 +255,46 @@
     <message>
         <source>Audio CD — Track %1 (%2:%3)</source>
         <translation>Audio CD — дорожка %1 (%2:%3)</translation>
+    </message>
+    <message>
+        <source>System</source>
+        <translation>Система</translation>
+    </message>
+    <message>
+        <source>Add Skin...</source>
+        <translation>Добавить скин...</translation>
+    </message>
+    <message>
+        <source>Open QSS Skin File</source>
+        <translation>Открыть файл скина QSS</translation>
+    </message>
+    <message>
+        <source>Select Accent Color for Custom Skin</source>
+        <translation>Выбрать акцентный цвет для пользовательского скина</translation>
+    </message>
+    <message>
+        <source>Custom Skin</source>
+        <translation>Пользовательский скин</translation>
+    </message>
+    <message>
+        <source>A skin named "%1" already exists. Overwrite?</source>
+        <translation>Скин с именем «%1» уже существует. Перезаписать?</translation>
+    </message>
+    <message>
+        <source>Failed to copy skin file.</source>
+        <translation>Не удалось скопировать файл скина.</translation>
+    </message>
+    <message>
+        <source>Skin added successfully.</source>
+        <translation>Скин успешно добавлен.</translation>
+    </message>
+    <message>
+        <source>Invalid skin name.</source>
+        <translation>Недопустимое имя скина.</translation>
+    </message>
+    <message>
+        <source>Telegram Channel</source>
+        <translation>Telegram-канал</translation>
     </message>
 </context>
 <context>
@@ -419,6 +463,42 @@
     <message>
         <source>Playlist</source>
         <translation type="vanished">Плейлист</translation>
+    </message>
+    <message>
+        <source>System</source>
+        <translation>Система</translation>
+    </message>
+    <message>
+        <source>Add Skin...</source>
+        <translation>Добавить скин...</translation>
+    </message>
+    <message>
+        <source>Open QSS Skin File</source>
+        <translation>Открыть файл скина QSS</translation>
+    </message>
+    <message>
+        <source>Select Accent Color for Custom Skin</source>
+        <translation>Выбрать акцентный цвет для пользовательского скина</translation>
+    </message>
+    <message>
+        <source>Custom Skin</source>
+        <translation>Пользовательский скин</translation>
+    </message>
+    <message>
+        <source>A skin named "%1" already exists. Overwrite?</source>
+        <translation>Скин с именем «%1» уже существует. Перезаписать?</translation>
+    </message>
+    <message>
+        <source>Failed to copy skin file.</source>
+        <translation>Не удалось скопировать файл скина.</translation>
+    </message>
+    <message>
+        <source>Skin added successfully.</source>
+        <translation>Скин успешно добавлен.</translation>
+    </message>
+    <message>
+        <source>Invalid skin name.</source>
+        <translation>Недопустимое имя скина.</translation>
     </message>
 </context>
 <context>

@@ -141,6 +141,14 @@
         <source>Bit Perfect (Smart Gain)</source>
         <translation type="unfinished">Bit Perfect (Smart Gain)</translation>
     </message>
+    <message>
+        <source>Skins</source>
+        <translation type="unfinished">Skins</translation>
+    </message>
+    <message>
+        <source>Telegram Channel</source>
+        <translation>Telegram Channel</translation>
+    </message>
 </context>
 <context>
     <name>Kalorite::SongDownloader</name>
