@@ -536,6 +536,11 @@ namespace Kalorite
         this->pluginManager->loadAllPlugins();
         this->pluginManager->populateMenu(this->pluginsMenu);
 
+        // Clipboard watcher: detect when the user copies a direct link to an
+        // audio file and offer to download it into the playlist.
+        QClipboard* clipboard = QApplication::clipboard();
+        connect(clipboard, &QClipboard::dataChanged, this, &MainWindow::onClipboardChanged);
+
         show();
 
         // On first show the SetFixedSize constraint is computed before every
@@ -725,6 +730,50 @@ namespace Kalorite
 
     void MainWindow::openSoundFileDownloadDialog() {
        this->songDownloader->show();
+    }
+
+    void MainWindow::onClipboardChanged() {
+        QClipboard* clipboard = QApplication::clipboard();
+        QString text = clipboard->text().trimmed();
+
+        // Ignore empty or non-URL clipboard content.
+        if (text.isEmpty()) return;
+
+        // Only look at http(s) URLs.
+        QUrl url(text);
+        if (!url.isValid() || (url.scheme() != "http" && url.scheme() != "https"))
+            return;
+
+        // Check that the URL path ends with a known audio file extension.
+        static const QStringList audioExtensions = {
+            "mp3", "wav", "flac", "ogg", "opus", "aac", "m4a", "wma"
+        };
+        QString path = url.path().toLower();
+        bool looksLikeAudio = false;
+        for (const auto& ext : audioExtensions) {
+            if (path.endsWith("." + ext)) {
+                looksLikeAudio = true;
+                break;
+            }
+        }
+        if (!looksLikeAudio) return;
+
+        // Don't re-prompt for the same URL.
+        if (text == m_lastClipboardUrl) return;
+        m_lastClipboardUrl = text;
+
+        // Ask the user whether they want to download this track.
+        QMessageBox::StandardButton reply = QMessageBox::question(
+            this,
+            tr("&DownloadSound"),
+            tr("&ClipboardAudioDetected").arg(url.fileName()),
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::Yes
+        );
+
+        if (reply == QMessageBox::Yes) {
+            this->songDownloader->showWithUrl(text);
+        }
     }
 
     void MainWindow::loadPlaylistTriggered() {

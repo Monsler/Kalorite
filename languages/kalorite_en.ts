@@ -60,6 +60,10 @@
         <translation type="unfinished">&amp;Exit</translation>
     </message>
     <message>
+        <source>&amp;ClipboardAudioDetected</source>
+        <translation type="unfinished">Audio link detected in clipboard: "%1". Download to playlist?</translation>
+    </message>
+    <message>
         <location filename="../src/MainWindow.cpp" line="89"/>
         <source>PlayTooltip</source>
         <translation type="unfinished">Starts/Stops the playback of current audio</translation>

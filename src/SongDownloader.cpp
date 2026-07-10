@@ -188,4 +188,13 @@ namespace Kalorite {
         frame->activateWindow();
         urlInput->setFocus();
     }
+
+    void SongDownloader::showWithUrl(const QString& url) {
+        if (!currentReply) resetUi();
+        urlInput->setText(url);
+        frame->show();
+        frame->raise();
+        frame->activateWindow();
+        urlInput->setFocus();
+    }
 } // namespace Kalorite

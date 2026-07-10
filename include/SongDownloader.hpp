@@ -23,6 +23,7 @@ namespace Kalorite {
         SongDownloader(MainWindow* parent=nullptr);
 
         void show();
+        void showWithUrl(const QString& url);
         void setParent(MainWindow* parent);
 
     public slots:

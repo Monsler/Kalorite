@@ -18,6 +18,7 @@
 #include <qspinbox.h>
 #include <qcheckbox.h>
 #include <qframe.h>
+#include <QClipboard>
 #include "SongDownloader.hpp"
 #include "WinampDisplay.hpp"
 #include "PatternVisualizer.hpp"
@@ -95,6 +96,7 @@ namespace Kalorite
         void openAddPluginDialog();
         void openAboutDialog();
         void openAddSkinDialog();
+        void onClipboardChanged();
 
         private:
 
@@ -190,5 +192,7 @@ namespace Kalorite
         // General-purpose persisted settings (loaded at startup, saved on change
         // and on close). Keep new options here so everything lands in one file.
         nlohmann::json m_settings;
+
+        QString m_lastClipboardUrl;
     };
 } // namespace Kalorite

@@ -68,6 +68,10 @@
         <translation>&amp;Выход</translation>
     </message>
     <message>
+        <source>&amp;ClipboardAudioDetected</source>
+        <translation>В буфере обмена обнаружена ссылка на аудиофайл «%1». Загрузить в плейлист?</translation>
+    </message>
+    <message>
         <location filename="../src/MainWindow.cpp" line="89"/>
         <source>&amp;View</source>
         <translation>&amp;Вид</translation>
