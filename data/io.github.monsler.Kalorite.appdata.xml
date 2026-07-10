@@ -34,15 +34,14 @@
   </screenshots>
 
   <releases>
-    <release version="3.1.0" date="2026-07-03">
+    <release version="3.2.0" date="2026-07-10">
     <description>
       <p>Thanks everyone for using Kalorite! This update includes:</p>
       <ul>
-        <li>Song downloading dialog fix</li>
-        <li>Pattern visualization with 11 different modes</li>
-        <li>AudioCD Support</li>
-        <li>Fix of options presented in right-click context menu</li>
-        <li>Something cool</li>
+        <li>Clipboard manager: you can now just copy direct link to audio and Kalorite will suggest you to download it.</li>
+        <li>Skins Support: Crimson example skin is available on GitHub.</li>
+        <li>Bug fix.</li>
+        <li>Added a Telegram Channel button under About program menu.</li>
       </ul>
       <p>Report any found bugs to GitHub.</p>
     </description>
