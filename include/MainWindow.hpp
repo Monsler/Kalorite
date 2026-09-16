@@ -1,3 +1,5 @@
+#include "AboutDialog.hpp"
+#include <memory>
 #include <qobject.h>
 #define let auto
 
@@ -66,9 +68,8 @@ namespace Kalorite
         void    addSoundFile(const QString& filePath, const QString& displayName = QString());
 
     signals:
-        // Emitted on the GUI thread; PluginManager fans these out to plugins.
         void pluginTrackChanged(QString path, int index);
-        void pluginPlaybackStateChanged(QString state); // "playing"/"paused"/"stopped"
+        void pluginPlaybackStateChanged(QString state);
         void pluginTrackFinished(QString path);
 
         private slots:
@@ -99,16 +100,11 @@ namespace Kalorite
         void onClipboardChanged();
 
         private:
-
-        // Persistent app settings (general-purpose JSON store for the future).
         QString settingsFilePath() const;
         void loadSettings();
         void saveSettings();
-        // Apply the persisted context-menu settings to the mixer / displays once
-        // all the widgets have been constructed.
+        
         void applyLoadedSettings();
-
-        // Plays the embedded greeting jingle once, on the very first launch.
         void playFirstRunGreeting();
 
         void startPlayback();
@@ -118,7 +114,6 @@ namespace Kalorite
         void seekToTrack(const int id);
         void genShuffle();
 
-        // Playlist item widget + priority queue helpers.
         void buildItemWidget(class QListWidgetItem* item);
         void refreshQueueLabels();
         void toggleQueueForRow(int row);
@@ -173,8 +168,6 @@ namespace Kalorite
         bool m_bitPerfectEnabled = false;
         bool m_smartGainEnabled = false;
 
-        // Live audio output device list: filled at startup and kept in sync
-        // via QMediaDevices::audioOutputsChanged.
         QMediaDevices* mediaDevices = nullptr;
         QList<QAudioDevice> audioDevices;
 
@@ -183,14 +176,14 @@ namespace Kalorite
         PatternVisualizer* patternVisualizer;
         QAction* showPatternVizAction = nullptr;
 
+        std::shared_ptr<AboutDialog> aboutDialog;
+
         QString m_currentSkinName = "system";
         QPalette m_defaultPalette;
         void applySkin(const QString& skinName);
         void applyDarkPalette(const QColor& accentColor, const QColor& bgColor, const QColor& surfaceColor);
         void populateSkinsMenu(QMenu* menu);
 
-        // General-purpose persisted settings (loaded at startup, saved on change
-        // and on close). Keep new options here so everything lands in one file.
         nlohmann::json m_settings;
 
         QString m_lastClipboardUrl;

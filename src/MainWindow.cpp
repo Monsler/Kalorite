@@ -1,4 +1,5 @@
 #include "MainWindow.hpp"
+#include "AboutDialog.hpp"
 #include "Mixer.hpp"
 #include "CddaSource.hpp"
 #include "PluginManager.hpp"
@@ -87,7 +88,6 @@ namespace Kalorite
         addPluginAction->setIcon(QIcon::fromTheme("insert-object"));
         connect(addPluginAction, &QAction::triggered, this, &MainWindow::openAddPluginDialog);
 
-
         QAction* addSkinAction = new QAction(tr("Add Skin..."), this);
         addSkinAction->setIcon(QIcon::fromTheme("document-new"));
         this->fileMenu->addAction(addSkinAction);
@@ -115,10 +115,8 @@ namespace Kalorite
 
         connect(exitAction, &QAction::triggered, this, &QApplication::quit);
 
-        // Fetch the audio outputs list shortly after startup (querying it is
-        // slow, so keep it off the constructor's critical path) and keep it in
-        // sync afterwards: audioOutputsChanged fires whenever devices are
-        // plugged in or removed.
+        this->aboutDialog = std::make_shared<AboutDialog>(this);
+
         this->mediaDevices = new QMediaDevices(this);
         connect(this->mediaDevices, &QMediaDevices::audioOutputsChanged, this, [this]() {
             this->audioDevices = QMediaDevices::audioOutputs();
@@ -522,73 +520,10 @@ namespace Kalorite
     }
 
     void MainWindow::openAboutDialog() {
-        QDialog dlg(this);
-        dlg.setWindowTitle(tr("About Kalorite"));
-        dlg.setFixedSize(440, 260);
-        
-        QPixmap logo = QIcon::fromTheme("io.github.monsler.Kalorite").pixmap(96, 96);
-        if (logo.isNull()) logo = windowIcon().pixmap(96, 96);
-        if (logo.isNull()) {
-            for (const QString& c : {
-                    QStringLiteral("/app/share/icons/hicolor/512x512/apps/io.github.monsler.Kalorite.png"),
-                    QCoreApplication::applicationDirPath() + "/data/io.github.monsler.Kalorite.png",
-                    QStringLiteral("data/io.github.monsler.Kalorite.png") }) {
-                logo = QPixmap(c);
-                if (!logo.isNull()) break;
-            }
-        }
-        if (logo.isNull()) {
-            logo = QPixmap(96, 96);
-            logo.fill(Qt::transparent);
-            QPainter pr(&logo);
-            pr.setRenderHint(QPainter::Antialiasing);
-            pr.setBrush(QColor(0x2d, 0x74, 0xda));
-            pr.setPen(Qt::NoPen);
-            pr.drawRoundedRect(logo.rect().adjusted(2, 2, -2, -2), 16, 16);
-            pr.setPen(Qt::white);
-            QFont f = pr.font(); f.setBold(true); f.setPointSize(46); pr.setFont(f);
-            pr.drawText(logo.rect(), Qt::AlignCenter, "K");
-        }
-        logo = logo.scaled(96, 96, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-
-        QString version = QCoreApplication::applicationVersion();
-        if (version.isEmpty()) version = "3.5.0";
-        QLabel* text = new QLabel(&dlg);
-        text->setGeometry(140, 24, 280, 212);
-        text->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-        text->setWordWrap(true);
-        text->setTextFormat(Qt::RichText);
-
-        text->setOpenExternalLinks(false);
-        text->setText(tr(
-            "<h2 style='margin-bottom:2px'>Kalorite</h2>"
-            "<p style='color:gray;margin-top:0'>"
-            "<a href='kalorite:reset-greeting' style='color:gray;text-decoration:none'>Version %1</a></p>"
-            "<p>Kalorite is a lightweight audio player. It supports all modern "
-            "codecs and have simple and elegant design.</p>"
-            "<p>by monsler<br>"
-            "<a href='https://github.com/Monsler/Kalorite'>github.com/Monsler/Kalorite</a></p>")
-            .arg(version));
-
-        connect(text, &QLabel::linkActivated, this, [this, text](const QString& link) {
-            if (link == QLatin1String("kalorite:reset-greeting")) {
-                
-                m_settings["greeting_played"] = false;
-                saveSettings();
-                QToolTip::showText(QCursor::pos(),
-                    tr("Greeting will play again on next launch"), text);
-            } else {
-                QDesktopServices::openUrl(QUrl(link));
-            }
-        });
-
-        BouncingLogo* badge = new BouncingLogo(&dlg, logo);
-        badge->move(16, 16);
-        badge->raise();
-
-        dlg.exec();
+        this->aboutDialog->invalidateLogo();
+        this->aboutDialog->exec();
     }
-    
+
     void MainWindow::pluginPlay()  { startPlayback(); }
     void MainWindow::pluginPause() { stopPlayback(); }
     void MainWindow::pluginStop()  { stopPlayback(); this->mixer->setPosition(0); }
