@@ -31,9 +31,6 @@
 #define ICON_REPEAT_THE_LIST QIcon::fromTheme("media-playlist-repeat-amarok")
 #define ICON_REPEAT_SHUFFLE QIcon::fromTheme("media-playlist-shuffle")
 
-// Playlist item data roles. RolePath is the on-disk path (also used by the
-// plugin API); the rest let us rebuild an item's widget from scratch after a
-// drag reorder, since Qt only preserves item data — not the item widget.
 static constexpr int RolePath     = Qt::UserRole;      // QString file path
 static constexpr int RoleName     = Qt::UserRole + 1;  // QString display name
 static constexpr int RoleDuration = Qt::UserRole + 2;  // QString "mm:ss"
@@ -50,73 +47,7 @@ static constexpr int RoleQueue    = Qt::UserRole + 3;  // int, 0 = not queued
 #include <QUrl>
 #include <QCursor>
 #include <cmath>
-
-namespace {
-
-// A clickable logo that, WinRAR-style, bounces around its parent with gravity
-// and springy wall collisions when clicked. Each extra click gives it a kick.
-// Plain QLabel subclass (no signals/slots) so it needs no moc.
-class BouncingLogo : public QLabel {
-public:
-    BouncingLogo(QWidget* parent, const QPixmap& pm) : QLabel(parent) {
-        setPixmap(pm);
-        setFixedSize(pm.size());
-        setCursor(Qt::PointingHandCursor);
-        setToolTip(QObject::tr("Click me!"));
-        m_timer = new QTimer(this);
-        QObject::connect(m_timer, &QTimer::timeout, this, [this] { step(); });
-    }
-
-protected:
-    void mousePressEvent(QMouseEvent*) override {
-        auto* rng = QRandomGenerator::global();
-        if (!m_timer->isActive()) {
-            m_x = x(); m_y = y();
-            m_vx = 3.0 + rng->bounded(6);
-            m_vy = -13.0 - rng->bounded(5);
-            m_timer->start(16); // ~60 fps
-        } else {
-            // A kick: launch it upward again with a random horizontal nudge.
-            m_vy -= 11.0 + rng->bounded(4);
-            m_vx += rng->bounded(11) - 5;
-        }
-    }
-
-private:
-    void step() {
-        const double gravity = 0.9, restitution = 0.78, friction = 0.98;
-        QWidget* p = parentWidget();
-        if (!p) { m_timer->stop(); return; }
-        const double maxX = p->width()  - width();
-        const double maxY = p->height() - height();
-
-        m_vy += gravity;
-        m_x  += m_vx;
-        m_y  += m_vy;
-
-        if (m_x < 0)    { m_x = 0;    m_vx = -m_vx * restitution; }
-        if (m_x > maxX) { m_x = maxX; m_vx = -m_vx * restitution; }
-        if (m_y < 0)    { m_y = 0;    m_vy = -m_vy * restitution; }
-        if (m_y > maxY) {
-            m_y = maxY;
-            m_vy = -m_vy * restitution;
-            m_vx *= friction;
-            // Once it has essentially settled on the floor, stop animating.
-            if (std::abs(m_vy) < 1.6 && std::abs(m_vx) < 0.35) {
-                m_vx = m_vy = 0.0;
-                move(int(m_x), int(m_y));
-                m_timer->stop();
-                return;
-            }
-        }
-        move(int(m_x), int(m_y));
-    }
-
-    QTimer* m_timer = nullptr;
-    double m_x = 0, m_y = 0, m_vx = 0, m_vy = 0;
-};
-
-} // anonymous namespace
+#include "BouncingLogo.hpp"
 
 namespace Kalorite
 {
@@ -210,7 +141,6 @@ namespace Kalorite
         this->volumeSignal = new VolumeSignalWidget(this);
         this->volumeSignal->setVolume(100);
 
-        // View menu for Retro/Modern modes
         QMenu* viewMenu = this->currentMenuBar->addMenu(tr("&View"));
         QActionGroup* modeGroup = new QActionGroup(this);
 
@@ -241,14 +171,11 @@ namespace Kalorite
         });
 
         connect(winampDisplay, &WinampDisplay::contextMenuRequested, this, &MainWindow::onContextMenuWinampDisplay);
-        // The pattern visualizer shares the same right-click context menu.
+        
         connect(patternVisualizer, &PatternVisualizer::contextMenuRequested, this, &MainWindow::onContextMenuWinampDisplay);
 
-        // Restore the persisted context-menu settings now that the mixer and the
-        // displays exist.
         applyLoadedSettings();
 
-        // Toggle for the pattern visualizer, persisted in the settings file.
         viewMenu->addSeparator();
         showPatternVizAction = new QAction(tr("Show Pattern Visualizer"), this);
         showPatternVizAction->setCheckable(true);
@@ -262,12 +189,9 @@ namespace Kalorite
             saveSettings();
         });
 
-        // Plugins menu comes right after View in the menu bar. It is filled in
-        // once the PluginManager has scanned the plugins directory (below).
         this->pluginsMenu = this->currentMenuBar->addMenu(tr("&Plugins"));
-
-        // Help menu with the About dialog (and its little easter egg).
         QMenu* helpMenu = this->currentMenuBar->addMenu(tr("&Help"));
+
         QAction* aboutAction = new QAction(tr("&About"), this);
         aboutAction->setIcon(QIcon::fromTheme("help-about"));
         helpMenu->addAction(aboutAction);
@@ -294,9 +218,7 @@ namespace Kalorite
         soundList = new QListWidget();
         soundList->setFixedHeight(160);
         soundList->setContextMenuPolicy(Qt::CustomContextMenu);
-        // Drag-and-drop reordering of playlist entries (Winamp-style). The moved
-        // QListWidgetItem keeps its data roles but loses its item widget, so we
-        // rebuild the widgets in onRowsReordered once the model settles.
+        
         soundList->setDragDropMode(QAbstractItemView::InternalMove);
         soundList->setSelectionMode(QAbstractItemView::SingleSelection);
         soundList->setDefaultDropAction(Qt::MoveAction);
@@ -361,7 +283,9 @@ namespace Kalorite
         eqToggleBtn->setCheckable(true);
         eqToggleBtn->setChecked(false);
         eqToggleBtn->setText(QString("▶ %1").arg(tr("Equalizer")));
-        eqToggleBtn->setStyleSheet("text-align: left; padding: 6px; font-weight: bold;");
+        eqToggleBtn->setStyleSheet(
+            "text-align: left; padding: 6px; padding-left: 10px; padding-top: 10px; font-weight: bold;"
+        );
 
         eqContainer = new QWidget(this);
         QVBoxLayout* eqContainerLayout = new QVBoxLayout(eqContainer);
@@ -477,7 +401,9 @@ namespace Kalorite
         playlistToggleBtn = new QPushButton(QString("▼ %1").arg(tr("Playlist")), this);
         playlistToggleBtn->setCheckable(true);
         playlistToggleBtn->setChecked(true);
-        playlistToggleBtn->setStyleSheet("text-align: left; padding: 6px; font-weight: bold;");
+        playlistToggleBtn->setStyleSheet(
+            "text-align: left; padding: 6px; padding-left: 10px; padding-top: 10px; font-weight: bold;"
+        );
 
         playlistContainer = new QWidget(this);
         QVBoxLayout* containerLayout = new QVBoxLayout(playlistContainer);
@@ -599,10 +525,7 @@ namespace Kalorite
         QDialog dlg(this);
         dlg.setWindowTitle(tr("About Kalorite"));
         dlg.setFixedSize(440, 260);
-
-        // The app logo (installed as a themed icon under the app id). Fall back
-        // through a few candidate paths, then a drawn placeholder, so the
-        // easter egg always has something to bounce even from a dev build.
+        
         QPixmap logo = QIcon::fromTheme("io.github.monsler.Kalorite").pixmap(96, 96);
         if (logo.isNull()) logo = windowIcon().pixmap(96, 96);
         if (logo.isNull()) {
@@ -628,17 +551,14 @@ namespace Kalorite
         }
         logo = logo.scaled(96, 96, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 
-        // Descriptive text sits to the right of the logo's resting spot.
         QString version = QCoreApplication::applicationVersion();
-        if (version.isEmpty()) version = "3.0.0";
+        if (version.isEmpty()) version = "3.5.0";
         QLabel* text = new QLabel(&dlg);
         text->setGeometry(140, 24, 280, 212);
         text->setAlignment(Qt::AlignTop | Qt::AlignLeft);
         text->setWordWrap(true);
         text->setTextFormat(Qt::RichText);
-        // We handle link clicks ourselves so the version can act as a hidden
-        // switch (replaying the greeting) while the GitHub link still opens
-        // externally.
+
         text->setOpenExternalLinks(false);
         text->setText(tr(
             "<h2 style='margin-bottom:2px'>Kalorite</h2>"
@@ -652,8 +572,7 @@ namespace Kalorite
 
         connect(text, &QLabel::linkActivated, this, [this, text](const QString& link) {
             if (link == QLatin1String("kalorite:reset-greeting")) {
-                // Clear the "already greeted" flag so the greeting jingle plays
-                // again on the next launch.
+                
                 m_settings["greeting_played"] = false;
                 saveSettings();
                 QToolTip::showText(QCursor::pos(),
@@ -663,17 +582,13 @@ namespace Kalorite
             }
         });
 
-        // The logo starts pinned top-left with a small margin; clicking it
-        // sets off the bouncing easter egg over the whole dialog.
         BouncingLogo* badge = new BouncingLogo(&dlg, logo);
         badge->move(16, 16);
         badge->raise();
 
         dlg.exec();
     }
-
-    // ---- Plugin API surface -----------------------------------------------
-
+    
     void MainWindow::pluginPlay()  { startPlayback(); }
     void MainWindow::pluginPause() { stopPlayback(); }
     void MainWindow::pluginStop()  { stopPlayback(); this->mixer->setPosition(0); }

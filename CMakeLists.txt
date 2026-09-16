@@ -5,7 +5,7 @@ project(kalorite VERSION 0.1)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 26)
-set(CMAKE_CXX_STRANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -22,8 +22,6 @@ if(NOT APPLE AND UNIX)
     find_package(KF6WidgetsAddons REQUIRED)
     find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools Multimedia DBus Network)
 
-    # Live Audio-CD streaming (libcdio_paranoia). Optical drives are a
-    # non-Apple thing, so we only look for it here.
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(CDIO_PARANOIA IMPORTED_TARGET libcdio_paranoia)
 
@@ -33,9 +31,6 @@ endif()
 
 add_subdirectory(external/json)
 
-# ---------------------------------------------------------------------------
-# LuaJIT: built via its own Makefile as a static lib, then imported here.
-# ---------------------------------------------------------------------------
 set(LUAJIT_DIR ${CMAKE_SOURCE_DIR}/external/luajit)
 set(LUAJIT_LIB ${LUAJIT_DIR}/src/libluajit.a)
 
@@ -52,29 +47,10 @@ add_library(luajit STATIC IMPORTED GLOBAL)
 set_target_properties(luajit PROPERTIES IMPORTED_LOCATION ${LUAJIT_LIB})
 add_dependencies(luajit luajit_build)
 
-set(SRC
-    src/main.cpp
-    src/MainWindow.cpp
-    include/MainWindow.hpp
-    include/PlasmaPercent.hpp
-    src/PlasmaPercent.cpp
-    src/Mixer.cpp
-    include/Mixer.hpp
-    src/CddaSource.cpp
-    include/CddaSource.hpp
-    src/SongDownloader.cpp
-    include/SongDownloader.hpp
-    src/WinampDisplay.cpp
-    include/WinampDisplay.hpp
-    src/PatternVisualizer.cpp
-    include/PatternVisualizer.hpp
-    src/VolumeSignalWidget.cpp
-    include/VolumeSignalWidget.hpp
-    src/PluginManager.cpp
-    include/PluginManager.hpp
-    src/LuaApi.cpp
-    include/LuaApi.hpp
-    src/miniaudio.c
+file(GLOB_RECURSE SRC_FULL
+    CONFIGURE_DEPENDS 
+    "src/*.cpp" 
+    "include/*.hpp"
 )
 
 configure_file(${CMAKE_SOURCE_DIR}/resources.qrc
@@ -82,7 +58,7 @@ configure_file(${CMAKE_SOURCE_DIR}/resources.qrc
                COPYONLY)
 
 qt_add_executable(kalorite
-    ${SRC}
+    ${SRC_FULL}
     ${CMAKE_BINARY_DIR}/resources.qrc
     ${CMAKE_SOURCE_DIR}/assets.qrc)
 
@@ -92,12 +68,11 @@ qt_add_translations(kalorite
         languages/kalorite_en.ts
 
     SOURCES
-        ${SRC}
+        ${SRC_FULL}
 )
 
 target_include_directories(kalorite PRIVATE include/ ${LUAJIT_DIR}/src)
 
-# LuaJIT's amalgamated static lib must be finished before we compile/link.
 add_dependencies(kalorite luajit_build)
 
 if (NOT APPLE)
@@ -114,10 +89,8 @@ if (NOT APPLE)
         ${CMAKE_DL_LIBS}
         nlohmann_json::nlohmann_json
         luajit)
-    # LuaJIT needs the executable's symbols exported for its FFI/GC to work.
     target_link_options(kalorite PRIVATE -Wl,-E)
 
-    # Enable live Audio-CD support only when libcdio_paranoia is present.
     if(CDIO_PARANOIA_FOUND)
         target_link_libraries(kalorite PRIVATE PkgConfig::CDIO_PARANOIA)
         target_compile_definitions(kalorite PRIVATE KALORITE_HAVE_CDDA)
@@ -132,7 +105,6 @@ else()
         Qt6::Network
         nlohmann_json::nlohmann_json
         luajit)
-    # Required by LuaJIT on 64-bit macOS.
     target_link_options(kalorite PRIVATE
         -pagezero_size 10000 -image_base 100000000)
 endif()
