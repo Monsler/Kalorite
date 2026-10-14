@@ -21,6 +21,7 @@ namespace Kalorite {
     class AboutDialog;
     class WinampDisplay;
     class PatternVisualizer;
+    class LyricsBackend;
 
 
     class MainWindow : public QQuickView {
@@ -33,6 +34,7 @@ namespace Kalorite {
         Q_PROPERTY(bool controlsEnabled READ controlsEnabled NOTIFY controlsEnabledChanged)
         Q_PROPERTY(bool patternVizVisible READ patternVizVisible WRITE setPatternVizVisible NOTIFY patternVizVisibleChanged)
         Q_PROPERTY(bool eqVisible READ eqVisible WRITE setEqVisible NOTIFY eqVisibleChanged)
+        Q_PROPERTY(bool lyricsVisible READ lyricsVisible WRITE setLyricsVisible NOTIFY lyricsVisibleChanged)
         Q_PROPERTY(bool playlistVisible READ playlistVisible WRITE setPlaylistVisible NOTIFY playlistVisibleChanged)
         Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
         Q_PROPERTY(Kalorite::MenuNode* rootMenu READ rootMenu CONSTANT)
@@ -55,6 +57,8 @@ namespace Kalorite {
         void setPatternVizVisible(bool visible);
         bool eqVisible() const { return m_eqVisible; }
         void setEqVisible(bool visible);
+        bool lyricsVisible() const { return m_lyricsVisible; }
+        void setLyricsVisible(bool visible);
         bool playlistVisible() const { return m_playlistVisible; }
         void setPlaylistVisible(bool visible);
         QString statusMessage() const { return m_statusMessage; }
@@ -87,6 +91,7 @@ namespace Kalorite {
         void controlsEnabledChanged();
         void patternVizVisibleChanged();
         void eqVisibleChanged();
+        void lyricsVisibleChanged();
         void playlistVisibleChanged();
         void statusMessageChanged();
 
@@ -116,6 +121,7 @@ namespace Kalorite {
         PlaybackController* playback = nullptr;
         EqualizerBackend* eqBackend = nullptr;
         PlaylistBackend* playlistBackend = nullptr;
+        LyricsBackend* lyricsBackend = nullptr;
         PluginApi* pluginApi = nullptr;
         PluginManager* pluginManager = nullptr;
         ClipboardWatcher* clipboardWatcher = nullptr;
@@ -134,6 +140,7 @@ namespace Kalorite {
         MenuNode* m_retroAction = nullptr;
         MenuNode* m_modernAction = nullptr;
         MenuNode* m_showPatternVizAction = nullptr;
+        MenuNode* m_showLyricsAction = nullptr;
 
         PlasmaPercent percent;
 
@@ -141,6 +148,7 @@ namespace Kalorite {
         bool m_controlsEnabled = false;
         bool m_patternVizVisible = true;
         bool m_eqVisible = false;
+        bool m_lyricsVisible = false;
         bool m_playlistVisible = true;
         QString m_statusMessage;
     };

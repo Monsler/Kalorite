@@ -72,6 +72,7 @@ qt_add_translations(kalorite
         ${SRC_FULL}
         ${CMAKE_SOURCE_DIR}/qml/EqualizerPanel.qml
         ${CMAKE_SOURCE_DIR}/qml/PlaylistPanel.qml
+        ${CMAKE_SOURCE_DIR}/qml/LyricsPanel.qml
         ${CMAKE_SOURCE_DIR}/qml/MainWindow.qml
 )
 

@@ -15,6 +15,7 @@
 #include "SongDownloader.hpp"
 #include "WinampDisplay.hpp"
 #include "PatternVisualizer.hpp"
+#include "LyricsBackend.hpp"
 
 
 #include <QCloseEvent>
@@ -51,6 +52,7 @@ MainWindow::MainWindow() {
     playlistBackend = new PlaylistBackend(playlist, tr("RemoveFromList"), this);
     playback = new PlaybackController(mixer, playlist, this);
     eqBackend = new EqualizerBackend(mixer, this);
+    lyricsBackend = new LyricsBackend(playback, mixer, playlist, this);
 
     connect(playlistBackend, &PlaylistBackend::trackActivated, playback, &PlaybackController::selectTrack);
     connect(playlistBackend, &PlaylistBackend::queueToggleRequested, playback, &PlaybackController::toggleQueue);
@@ -58,6 +60,7 @@ MainWindow::MainWindow() {
 
     connect(playback, &PlaybackController::playStateChanged, this, &MainWindow::onPlayStateChanged);
     connect(playback, &PlaybackController::trackLoaded, this, &MainWindow::onTrackLoaded);
+    connect(playback, &PlaybackController::trackLoaded, lyricsBackend, &LyricsBackend::onTrackLoaded);
     connect(playback, &PlaybackController::tick, this, &MainWindow::onTick);
     connect(playback, &PlaybackController::loopTypeChanged, this, &MainWindow::onLoopTypeChangedSlot);
     connect(playback, &PlaybackController::controlsAvailable, this, &MainWindow::enableControls);
@@ -117,6 +120,7 @@ MainWindow::MainWindow() {
     rootContext()->setContextProperty(QStringLiteral("playlistModel"), playlist->model());
     rootContext()->setContextProperty(QStringLiteral("pl"), playlistBackend);
     rootContext()->setContextProperty(QStringLiteral("eq"), eqBackend);
+    rootContext()->setContextProperty(QStringLiteral("lyrics"), lyricsBackend);
 
     engine()->addImageProvider(QStringLiteral("cover"), new CoverImageProvider(playlist->model()));
 
@@ -248,6 +252,15 @@ void MainWindow::setupMenus() {
         m_settings.set("pattern_visualizer_visible", checked);
     });
 
+    m_showLyricsAction = m_viewMenu->addItem(tr("Show Lyrics"), QStringLiteral("Ctrl+L"));
+    m_showLyricsAction->setCheckable(true);
+    bool lyricsVisible = m_settings.get("lyrics_visible", false);
+    m_showLyricsAction->setChecked(lyricsVisible);
+    m_lyricsVisible = lyricsVisible;
+    connect(m_showLyricsAction, &MenuNode::triggered, this, [this](bool checked) {
+        setLyricsVisible(checked);
+    });
+
     // Plugins Menu
     m_pluginsMenu = m_rootMenu->addItem(tr("&Plugins"));
 
@@ -281,6 +294,15 @@ void MainWindow::rebuildContextMenu() {
     modernAct->setChecked(winampDisplay->isModernMode());
     connect(modernAct, &MenuNode::triggered, this, [this]() {
         setModernMode(true);
+    });
+
+    modeSubMenu->addSeparator();
+
+    auto* lyricsAct = modeSubMenu->addItem(tr("Show Lyrics"));
+    lyricsAct->setCheckable(true);
+    lyricsAct->setChecked(m_lyricsVisible);
+    connect(lyricsAct, &MenuNode::triggered, this, [this](bool checked) {
+        setLyricsVisible(checked);
     });
 
     m_contextMenu->addSeparator();
@@ -365,6 +387,14 @@ void MainWindow::setEqVisible(bool visible) {
     emit eqVisibleChanged();
 }
 
+void MainWindow::setLyricsVisible(bool visible) {
+    if (m_lyricsVisible == visible) return;
+    m_lyricsVisible = visible;
+    if (m_showLyricsAction) m_showLyricsAction->setChecked(visible);
+    m_settings.set("lyrics_visible", visible);
+    emit lyricsVisibleChanged();
+}
+
 void MainWindow::setPlaylistVisible(bool visible) {
     if (m_playlistVisible == visible) return;
     m_playlistVisible = visible;
@@ -409,6 +439,9 @@ void MainWindow::showStatusMessage(const QString& text, int timeoutMs) {
 void MainWindow::applyLoadedSettings() {
     bool modern = m_settings.get("modern_mode", false);
     setModernMode(modern);
+
+    bool lyricsVis = m_settings.get("lyrics_visible", false);
+    setLyricsVisible(lyricsVis);
 
     playback->setCrossfadeEnabled(m_settings.get("crossfade_enabled", false));
     playback->setSmartGainEnabled(m_settings.get("smart_gain_enabled", false));
@@ -638,6 +671,9 @@ void MainWindow::updateProgress() {
 
     winampDisplay->setPlaybackState(playback->isPlaying(), posMs, durationMs);
     patternVisualizer->setPlaying(playback->isPlaying());
+    if (lyricsBackend) {
+        lyricsBackend->onPlaybackPositionChanged(posMs);
+    }
     percent.emitPercent(played);
 }
 

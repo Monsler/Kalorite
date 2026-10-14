@@ -45,6 +45,7 @@ namespace Kalorite {
         QString titleAt(int row) const;
         QString artistAt(int row) const;
         bool hasCoverAt(int row) const;
+        QImage coverAt(int row) const;
         QImage coverById(quint64 id) const;
         int queueAt(int row) const;
         void setQueue(int row, int queue);

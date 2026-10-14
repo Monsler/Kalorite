@@ -8,6 +8,7 @@
     <file alias="Host.qml">qml/Host.qml</file>
     <file alias="EqualizerPanel.qml">qml/EqualizerPanel.qml</file>
     <file alias="PlaylistPanel.qml">qml/PlaylistPanel.qml</file>
+    <file alias="LyricsPanel.qml">qml/LyricsPanel.qml</file>
     <file alias="MainWindow.qml">qml/MainWindow.qml</file>
     <file alias="VolumeBar.qml">qml/VolumeBar.qml</file>
 </qresource>

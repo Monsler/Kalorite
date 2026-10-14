@@ -30,6 +30,13 @@ Item {
         }
     }
 
+    Shortcut {
+        sequence: "Ctrl+L"
+        onActivated: {
+            if (mainWindow) mainWindow.lyricsVisible = !mainWindow.lyricsVisible
+        }
+    }
+
     Component {
         id: menuComponent
         Menu {
@@ -226,7 +233,7 @@ Item {
                 implicitHeight: 28
                 icon.name: "media-skip-backward"
                 ToolTip.visible: hovered
-                ToolTip.text: root.tr("SkipBackward")
+                ToolTip.text: qsTranslate("Kalorite::MainWindow", "SkipBackward")
                 enabled: mainWindow ? mainWindow.controlsEnabled : false
                 onClicked: if (mainWindow) mainWindow.onSkipBack()
             }
@@ -236,7 +243,7 @@ Item {
                 implicitHeight: 28
                 icon.name: (mainWindow && mainWindow.isPlaying) ? "media-playback-pause" : "media-playback-start"
                 ToolTip.visible: hovered
-                ToolTip.text: root.tr("PlayTooltip")
+                ToolTip.text: qsTranslate("Kalorite::MainWindow", "PlayTooltip")
                 enabled: mainWindow ? mainWindow.controlsEnabled : false
                 onClicked: if (mainWindow) mainWindow.onPlayClicked()
             }
@@ -246,7 +253,7 @@ Item {
                 implicitHeight: 28
                 icon.name: "media-skip-forward"
                 ToolTip.visible: hovered
-                ToolTip.text: root.tr("SkipForward")
+                ToolTip.text: qsTranslate("Kalorite::MainWindow", "SkipForward")
                 enabled: mainWindow ? mainWindow.controlsEnabled : false
                 onClicked: if (mainWindow) mainWindow.onSkipNext()
             }
@@ -259,6 +266,25 @@ Item {
                 ToolTip.text: mainWindow ? mainWindow.repeatTooltip : ""
                 enabled: mainWindow ? mainWindow.controlsEnabled : false
                 onClicked: if (mainWindow) mainWindow.onRepeatClicked()
+            }
+
+            Button {
+                id: lyricsQuickBtn
+                implicitWidth: 32
+                implicitHeight: 28
+                checkable: true
+                checked: mainWindow ? mainWindow.lyricsVisible : false
+                ToolTip.visible: hovered
+                ToolTip.text: qsTranslate("Kalorite::MainWindow", "Lyrics") + " (Ctrl+L)"
+                contentItem: Label {
+                    text: "♪"
+                    font.bold: true
+                    font.pixelSize: 13
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    color: (mainWindow && mainWindow.lyricsVisible) ? lyricsQuickBtn.palette.highlight : lyricsQuickBtn.palette.buttonText
+                }
+                onClicked: if (mainWindow) mainWindow.lyricsVisible = !mainWindow.lyricsVisible
             }
 
             Slider {
@@ -298,7 +324,7 @@ Item {
             checkable: true
             checked: mainWindow ? mainWindow.eqVisible : false
             contentItem: Label {
-                text: ((mainWindow && mainWindow.eqVisible) ? "▼ " : "▶ ") + root.tr("Equalizer")
+                text: ((mainWindow && mainWindow.eqVisible) ? "▼ " : "▶ ") + qsTranslate("Kalorite::MainWindow", "Equalizer")
                 font.bold: true
                 color: eqToggleBtn.palette.buttonText
                 horizontalAlignment: Text.AlignLeft
@@ -316,6 +342,33 @@ Item {
             implicitHeight: 160
         }
 
+        // Lyrics Toggle Button
+        Button {
+            id: lyricsToggleBtn
+            Layout.fillWidth: true
+            implicitHeight: 28
+            checkable: true
+            checked: mainWindow ? mainWindow.lyricsVisible : false
+            contentItem: Label {
+                text: ((mainWindow && mainWindow.lyricsVisible) ? "▼ " : "▶ ") + qsTranslate("Kalorite::MainWindow", "Lyrics")
+                font.bold: true
+                color: lyricsToggleBtn.palette.buttonText
+                horizontalAlignment: Text.AlignLeft
+                verticalAlignment: Text.AlignVCenter
+                leftPadding: 6
+            }
+            onClicked: if (mainWindow) mainWindow.lyricsVisible = !mainWindow.lyricsVisible
+        }
+
+        // Lyrics Panel
+        LyricsPanel {
+            id: lyricsPanel
+            visible: mainWindow ? mainWindow.lyricsVisible : false
+            Layout.fillWidth: true
+            Layout.preferredWidth: 0
+            implicitHeight: 160
+        }
+
         // Playlist Toggle Button
         Button {
             id: playlistToggleBtn
@@ -324,7 +377,7 @@ Item {
             checkable: true
             checked: mainWindow ? mainWindow.playlistVisible : true
             contentItem: Label {
-                text: ((mainWindow && mainWindow.playlistVisible) ? "▼ " : "▶ ") + root.tr("Playlist")
+                text: ((mainWindow && mainWindow.playlistVisible) ? "▼ " : "▶ ") + qsTranslate("Kalorite::MainWindow", "Playlist")
                 font.bold: true
                 color: playlistToggleBtn.palette.buttonText
                 horizontalAlignment: Text.AlignLeft
@@ -345,7 +398,7 @@ Item {
                 id: searchField
                 Layout.fillWidth: true
                 implicitHeight: 28
-                placeholderText: root.tr("Search...")
+                placeholderText: qsTranslate("Kalorite::MainWindow", "Search...")
                 selectByMouse: true
                 leftPadding: 8
                 rightPadding: searchField.text.length > 0 ? 26 : 8
@@ -372,7 +425,7 @@ Item {
                     implicitWidth: 20
                     implicitHeight: 20
                     padding: 0
-                    ToolTip.text: root.tr("Clear search")
+                    ToolTip.text: qsTranslate("Kalorite::MainWindow", "Clear search")
                     ToolTip.visible: hovered
 
                     contentItem: Label {
@@ -415,7 +468,7 @@ Item {
                     implicitHeight: 32
                     icon.name: "list-add"
                     ToolTip.visible: hovered
-                    ToolTip.text: root.tr("Add file to playlist")
+                    ToolTip.text: qsTranslate("Kalorite::MainWindow", "Add file to playlist")
                     onClicked: if (mainWindow) mainWindow.openButtonTriggered()
                 }
 
@@ -424,7 +477,7 @@ Item {
                     implicitHeight: 32
                     icon.name: "folder-new"
                     ToolTip.visible: hovered
-                    ToolTip.text: root.tr("Add folder to playlist")
+                    ToolTip.text: qsTranslate("Kalorite::MainWindow", "Add folder to playlist")
                     onClicked: if (mainWindow) mainWindow.addFolderTriggered()
                 }
 
@@ -433,7 +486,7 @@ Item {
                     implicitHeight: 32
                     icon.name: "media-optical"
                     ToolTip.visible: hovered
-                    ToolTip.text: root.tr("Open Audio CD")
+                    ToolTip.text: qsTranslate("Kalorite::MainWindow", "Open Audio CD")
                     onClicked: if (mainWindow) mainWindow.openAudioCdTriggered()
                 }
 

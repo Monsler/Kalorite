@@ -86,7 +86,7 @@ Pane {
                     id: coverContainer
                     width: 36
                     height: 36
-                    radius: 4
+                    radius: 6
                     clip: true
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
@@ -98,6 +98,7 @@ Pane {
                         id: coverImg
                         anchors.fill: parent
                         source: row.hasCover ? row.coverUrl : ""
+                        sourceSize: Qt.size(72, 72)
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
                         visible: row.hasCover && status === Image.Ready

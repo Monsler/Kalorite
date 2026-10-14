@@ -104,6 +104,11 @@ bool PlaylistModel::hasCoverAt(int row) const {
     return m_tracks.at(row).hasCover;
 }
 
+QImage PlaylistModel::coverAt(int row) const {
+    if (row < 0 || row >= count()) return {};
+    return m_tracks.at(row).cover;
+}
+
 QImage PlaylistModel::coverById(quint64 id) const {
     for (const Track& t : m_tracks) {
         if (t.id == id) return t.cover;
