@@ -1,191 +1,148 @@
-#include "AboutDialog.hpp"
-#include <memory>
-#include <qobject.h>
-#define let auto
-
 #pragma once
-#include "Mixer.hpp"
+
+#include <QQuickView>
+#include <QString>
+#include <QPointF>
+#include "Settings.hpp"
 #include "PlasmaPercent.hpp"
-#include <qtmetamacros.h>
-#include <qmainwindow.h>
-#include <qmenubar.h>
-#include <qpushbutton.h>
-#include <QVBoxLayout>
-#include <qslider.h>
-#include <qlabel.h>
-#include <qlistwidget.h>
-#include <qmediaplayer.h>
-#include <QMediaDevices>
-#include <QAudioDevice>
-#include <qspinbox.h>
-#include <qcheckbox.h>
-#include <qframe.h>
-#include <QClipboard>
-#include "SongDownloader.hpp"
-#include "WinampDisplay.hpp"
-#include "PatternVisualizer.hpp"
-#include "VolumeSignalWidget.hpp"
-#include <nlohmann/json.hpp>
+#include "MenuNode.hpp"
 
-namespace Kalorite
-{
+namespace Kalorite {
 
+    class Mixer;
+    class PlaybackController;
+    class Playlist;
+    class EqualizerBackend;
+    class PlaylistBackend;
+    class PluginApi;
     class PluginManager;
+    class ClipboardWatcher;
+    class SongDownloader;
+    class AboutDialog;
+    class WinampDisplay;
+    class PatternVisualizer;
 
-    bool containsItem(QListWidget *list, const QString& text);
 
-    class MainWindow : public QMainWindow {
+    class MainWindow : public QQuickView {
         Q_OBJECT
+        Q_PROPERTY(bool isPlaying READ isPlaying NOTIFY playStateChanged)
+        Q_PROPERTY(int loopType READ loopType NOTIFY loopTypeChanged)
+        Q_PROPERTY(QString repeatIcon READ repeatIcon NOTIFY loopTypeChanged)
+        Q_PROPERTY(QString repeatTooltip READ repeatTooltip NOTIFY loopTypeChanged)
+        Q_PROPERTY(int progress READ progress NOTIFY progressChanged)
+        Q_PROPERTY(bool controlsEnabled READ controlsEnabled NOTIFY controlsEnabledChanged)
+        Q_PROPERTY(bool patternVizVisible READ patternVizVisible WRITE setPatternVizVisible NOTIFY patternVizVisibleChanged)
+        Q_PROPERTY(bool eqVisible READ eqVisible WRITE setEqVisible NOTIFY eqVisibleChanged)
+        Q_PROPERTY(bool playlistVisible READ playlistVisible WRITE setPlaylistVisible NOTIFY playlistVisibleChanged)
+        Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
+        Q_PROPERTY(Kalorite::MenuNode* rootMenu READ rootMenu CONSTANT)
+        Q_PROPERTY(Kalorite::MenuNode* contextMenu READ contextMenu CONSTANT)
 
-        public:
+    public:
         MainWindow();
-        void setCurrentSong(const std::string path);
-        QListWidget* soundList;
+        ~MainWindow() override;
 
-        // ---- Plugin API surface -------------------------------------------
-        // These wrap the private transport/playlist logic so the LuaJIT plugin
-        // layer never has to touch internals directly. All are GUI-thread only.
-        Mixer* pluginMixer() { return mixer; }
+        // Called by SongDownloader once a download completes.
+        void addSoundFile(const QString& filePath, const QString& displayName = QString(), qint64 durationMs = -1);
 
-        void pluginPlay();
-        void pluginPause();
-        void pluginStop();
-        void pluginNext();
-        void pluginPrev();
-        bool pluginIsPlaying() const { return isPlaying; }
-        int  pluginPositionMs();
-        int  pluginDurationMs();
-        void pluginSeekMs(int ms);
+        bool isPlaying() const;
+        int loopType() const;
+        QString repeatIcon() const;
+        QString repeatTooltip() const;
+        int progress() const { return m_progress; }
+        bool controlsEnabled() const { return m_controlsEnabled; }
+        bool patternVizVisible() const { return m_patternVizVisible; }
+        void setPatternVizVisible(bool visible);
+        bool eqVisible() const { return m_eqVisible; }
+        void setEqVisible(bool visible);
+        bool playlistVisible() const { return m_playlistVisible; }
+        void setPlaylistVisible(bool visible);
+        QString statusMessage() const { return m_statusMessage; }
 
-        int     pluginPlaylistCount() const;
-        void    pluginPlaylistAdd(const QString& path);
-        void    pluginPlaylistRemove(int index);
-        void    pluginPlaylistClear();
-        QString pluginPlaylistPath(int index) const;
-        QString pluginPlaylistTitle(int index) const;
-        int     pluginCurrentIndex() const;
-        void    pluginPlayIndex(int index);
-        void    addSoundFile(const QString& filePath, const QString& displayName = QString());
+        MenuNode* rootMenu() const { return m_rootMenu; }
+        MenuNode* contextMenu() const { return m_contextMenu; }
 
-    signals:
-        void pluginTrackChanged(QString path, int index);
-        void pluginPlaybackStateChanged(QString state);
-        void pluginTrackFinished(QString path);
-
-        private slots:
-        void onPlayTriggered();
-        void openButtonTriggered();
-        void onPlayback();
+    public slots:
+        void onPlayClicked();
         void onSkipNext();
-        void onCrossfadeAdvance();
         void onSkipBack();
-        void onMediaPlayerStatusChanged(QMediaPlayer::PlaybackState status);
-        void playbackSliderPressed();
-        void playbackSliderReleased();
-        void onListSelection(QListWidgetItem *item);
-        void onSpinTriggered(const int value);
-        void onRepeatButtonTriggered();
-        void onContextMenuSoundList(const QPoint &pos);
-        void onRowsReordered();
-        void savePlaylistTriggered();
-        void loadPlaylistTriggered();
-        void openSoundFileDownloadDialog();
+        void onRepeatClicked();
+        void onSliderPressed();
+        void onSliderReleased();
+        void onSeek(int value);
+        void onSavePlaylist();
+        void onLoadPlaylist();
+        void openButtonTriggered();
         void addFolderTriggered();
         void openAudioCdTriggered();
-        void onDurationChanged(qint64 durationMs);
-        void onContextMenuWinampDisplay(const QPoint &pos);
+        void openSoundFileDownloadDialog();
         void openAddPluginDialog();
         void openAboutDialog();
-        void openAddSkinDialog();
-        void onClipboardChanged();
+        void onVolumeChanged(int value);
 
-        private:
-        QString settingsFilePath() const;
-        void loadSettings();
-        void saveSettings();
-        
-        void applyLoadedSettings();
-        void playFirstRunGreeting();
+    signals:
+        void playStateChanged();
+        void loopTypeChanged();
+        void progressChanged();
+        void controlsEnabledChanged();
+        void patternVizVisibleChanged();
+        void eqVisibleChanged();
+        void playlistVisibleChanged();
+        void statusMessageChanged();
 
-        void startPlayback();
-        void stopPlayback();
-        void updateTimeLabel();
-        void setPlaybackPos(const int percent);
-        void seekToTrack(const int id);
-        void genShuffle();
-
-        void buildItemWidget(class QListWidgetItem* item);
-        void refreshQueueLabels();
-        void toggleQueueForRow(int row);
-        void clearQueueEntryForRow(int row);
-        int  takeQueueHead();
-        int  takeNextQueuedTrack();
-
-        protected:
+    protected:
         void closeEvent(QCloseEvent* event) override;
 
-        QMenuBar* currentMenuBar;
-        QMenu* fileMenu;
+    private slots:
+        void onPlayStateChanged(bool playing);
+        void onTrackLoaded(const QString& path);
+        void onTick();
+        void onLoopTypeChangedSlot(int loopType);
+        void enableControls();
+        void onTrackRemoved();
+        void setModernMode(bool modern);
 
-        QPushButton* playbackButton;
-        QPushButton* skipBackButton;
-        QPushButton* skipForwardButton;
-        QPushButton* repeatButton;
+    private:
+        void applyLoadedSettings();
+        void updateProgress();
+        void playFirstRunGreeting();
+        void setupMenus();
+        void rebuildContextMenu();
+        void showStatusMessage(const QString& text, int timeoutMs = 5000);
 
-        QVBoxLayout* mainLayout;
-        QHBoxLayout* playerLayout;
-        QHBoxLayout* songsControlLayout;
-        QSlider* playbackSlider;
-        QWidget* centralWidget;
-        QLabel* timeLabel;
-
-
-        Mixer* mixer;
-        SongDownloader* songDownloader;
+        Settings m_settings;
+        Mixer* mixer = nullptr;
+        Playlist* playlist = nullptr;
+        PlaybackController* playback = nullptr;
+        EqualizerBackend* eqBackend = nullptr;
+        PlaylistBackend* playlistBackend = nullptr;
+        PluginApi* pluginApi = nullptr;
         PluginManager* pluginManager = nullptr;
-        QMenu* pluginsMenu = nullptr;
+        ClipboardWatcher* clipboardWatcher = nullptr;
+        SongDownloader* songDownloader = nullptr;
+        AboutDialog* aboutDialog = nullptr;
 
-        QTimer* playbackTimer;
+        WinampDisplay* winampDisplay = nullptr;
+        PatternVisualizer* patternVisualizer = nullptr;
 
-        VolumeSignalWidget* volumeSignal;
-        QWidget* playlistContainer;
-        QPushButton* playlistToggleBtn;
-
-        QPushButton* eqToggleBtn;
-        QWidget* eqContainer;
-        QCheckBox* eqEnabledCheckbox;
-        QFrame* eqSeparator;
-        QList<QSlider*> eqSliders;
-
-        std::string currentAudio;
-        bool isPlaying = false;
-        int trackLengthSeconds = 0;
-        int currentId;
-        int loopType = 0;
-        std::vector<int> shuffle;
-        int shufflePos = 0;
-        bool m_crossfadeEnabled = false;
-        bool m_bitPerfectEnabled = false;
-        bool m_smartGainEnabled = false;
-
-        QMediaDevices* mediaDevices = nullptr;
-        QList<QAudioDevice> audioDevices;
+        MenuNode* m_rootMenu = nullptr;
+        MenuNode* m_contextMenu = nullptr;
+        MenuNode* m_fileMenu = nullptr;
+        MenuNode* m_viewMenu = nullptr;
+        MenuNode* m_pluginsMenu = nullptr;
+        MenuNode* m_helpMenu = nullptr;
+        MenuNode* m_retroAction = nullptr;
+        MenuNode* m_modernAction = nullptr;
+        MenuNode* m_showPatternVizAction = nullptr;
 
         PlasmaPercent percent;
-        WinampDisplay* winampDisplay;
-        PatternVisualizer* patternVisualizer;
-        QAction* showPatternVizAction = nullptr;
 
-        std::shared_ptr<AboutDialog> aboutDialog;
-
-        QString m_currentSkinName = "system";
-        QPalette m_defaultPalette;
-        void applySkin(const QString& skinName);
-        void applyDarkPalette(const QColor& accentColor, const QColor& bgColor, const QColor& surfaceColor);
-        void populateSkinsMenu(QMenu* menu);
-
-        nlohmann::json m_settings;
-
-        QString m_lastClipboardUrl;
+        int m_progress = 0;
+        bool m_controlsEnabled = false;
+        bool m_patternVizVisible = true;
+        bool m_eqVisible = false;
+        bool m_playlistVisible = true;
+        QString m_statusMessage;
     };
+
 } // namespace Kalorite

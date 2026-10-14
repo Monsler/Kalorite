@@ -37,7 +37,6 @@ jobs:
           version: "6.7.3"
           host: mac
           target: desktop
-          modules: qtmultimedia
           cache: true
 
       - name: Configure

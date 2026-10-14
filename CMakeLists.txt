@@ -20,13 +20,13 @@ if(NOT APPLE AND UNIX)
     find_package(KF6 REQUIRED COMPONENTS CoreAddons WidgetsAddons)
     find_package(KF6I18n NO_MODULE REQUIRED)
     find_package(KF6WidgetsAddons REQUIRED)
-    find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools Multimedia DBus Network)
+    find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools DBus Network Quick QuickControls2 QuickWidgets)
 
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(CDIO_PARANOIA IMPORTED_TARGET libcdio_paranoia)
 
 else()
-    find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools Multimedia Network)
+    find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools Network Quick QuickControls2 QuickWidgets)
 endif()
 
 add_subdirectory(external/json)
@@ -69,6 +69,9 @@ qt_add_translations(kalorite
 
     SOURCES
         ${SRC_FULL}
+        ${CMAKE_SOURCE_DIR}/qml/EqualizerPanel.qml
+        ${CMAKE_SOURCE_DIR}/qml/PlaylistPanel.qml
+        ${CMAKE_SOURCE_DIR}/qml/MainWindow.qml
 )
 
 target_include_directories(kalorite PRIVATE include/ ${LUAJIT_DIR}/src)
@@ -79,8 +82,10 @@ if (NOT APPLE)
     find_package(Threads REQUIRED)
     target_link_libraries(kalorite PRIVATE
         Qt6::Widgets
-        Qt6::Multimedia
         Qt6::Network
+        Qt6::Quick
+        Qt6::QuickControls2
+        Qt6::QuickWidgets
         KF6::CoreAddons
         KF6::I18n
         KF6::WidgetsAddons
@@ -101,8 +106,10 @@ if (NOT APPLE)
 else()
     target_link_libraries(kalorite PRIVATE
         Qt6::Widgets
-        Qt6::Multimedia
         Qt6::Network
+        Qt6::Quick
+        Qt6::QuickControls2
+        Qt6::QuickWidgets
         nlohmann_json::nlohmann_json
         luajit)
     target_link_options(kalorite PRIVATE

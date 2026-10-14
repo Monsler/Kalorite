@@ -300,6 +300,18 @@
         <source>Telegram Channel</source>
         <translation>Telegram-канал</translation>
     </message>
+    <message>
+        <source>Search...</source>
+        <translation>Поиск...</translation>
+    </message>
+    <message>
+        <source>Clear search</source>
+        <translation>Очистить поиск</translation>
+    </message>
+    <message>
+        <source>No tracks found</source>
+        <translation>Треки не найдены</translation>
+    </message>
 </context>
 <context>
     <name>Kalorite::SongDownloader</name>

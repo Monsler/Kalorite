@@ -1,21 +1,19 @@
 #pragma once
 
-#include <QWidget>
+#include <QQuickPaintedItem>
 #include <QTimer>
 #include <QVector>
 #include <QMap>
 #include <QString>
-#include <QAudioDecoder>
 
 namespace Kalorite {
     class Mixer;
 
-    class WinampDisplay : public QWidget {
+    class WinampDisplay : public QQuickPaintedItem {
         Q_OBJECT
 
     public:
-        explicit WinampDisplay(QWidget* parent = nullptr);
-        ~WinampDisplay() override;
+        explicit WinampDisplay(QQuickItem* parent = nullptr);
 
         void setMixer(Mixer* mixer);
         void loadAudioFile(const QString& filePath);
@@ -27,19 +25,15 @@ namespace Kalorite {
 
     signals:
         void modeChanged(bool modern);
-        void contextMenuRequested(const QPoint& pos);
-
-    private slots:
-        void onBufferReady();
-        void onDecoderFinished();
+        void contextMenuRequested(const QPointF& pos);
 
     protected:
-        void paintEvent(QPaintEvent* event) override;
+        void paint(QPainter* painter) override;
         void timerEvent(QTimerEvent* event) override;
         void mousePressEvent(QMouseEvent* event) override;
-        QSize sizeHint() const override;
 
     private:
+        QRect bounds() const { return QRect(0, 0, int(width()), int(height())); }
         void updateSimulation();
         void drawRetroDisplay(QPainter& painter);
         void drawModernDisplay(QPainter& painter);
@@ -59,8 +53,6 @@ namespace Kalorite {
         double m_timeAccumulator = 0.0;
 
         Mixer* m_mixer = nullptr;
-        QAudioDecoder* m_decoder = nullptr;
-        QMap<qint64, QVector<double>> m_spectrumFrames;
         QString m_currentFilePath;
 
         // Visualizer bands (e.g. 20 bands)

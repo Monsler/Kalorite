@@ -1,19 +1,20 @@
 #pragma once
 
-#include "BouncingLogo.hpp"
-#include <memory>
-#include <qdialog.h>
-#include <qlabel.h>
-#include <qwidget.h>
+#include <QObject>
+
+class QQmlEngine;
 
 namespace Kalorite {
-    class AboutDialog : public QDialog {
+    class AboutDialog : public QObject {
+        Q_OBJECT
+
         public:
-        AboutDialog(QWidget* parent);
-        void invalidateLogo();
+        explicit AboutDialog(QObject* parent);
+        ~AboutDialog() override;
+        void show();
 
         private:
-        std::shared_ptr<BouncingLogo> badge;
-        std::shared_ptr<QLabel> text;
+        QQmlEngine* m_engine;
+        QObject* m_window = nullptr;
     };
 }

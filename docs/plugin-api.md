@@ -80,8 +80,13 @@ kalorite.net.download(url, dest_path, {
 ```
 
 ### `kalorite.ui`
-`message(text)`, `error(text)`, `confirm(text)`→bool, `input(prompt [,default])`
-→string|nil, `notify(text)` (status bar).
+- `message(text)`, `error(text)` — show a dialog and return immediately.
+- `confirm(text, callback)` — `callback(true)` on Yes, `callback(false)` otherwise.
+- `input(prompt [, default], callback)` — `callback(text)`, or `callback(nil)` on cancel.
+- `notify(text)` — status bar message.
+
+`confirm` and `input` are asynchronous: the callback replaces the return value, so
+code after the call runs before the user answers.
 
 ### `kalorite.storage` (persisted per plugin, scalar values)
 `set(key, value)` / `get(key [, default])`. Values may be string, number,

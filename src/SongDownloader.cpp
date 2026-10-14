@@ -135,7 +135,7 @@ namespace Kalorite {
         if (!currentReply) return;
 
         bool ok = currentReply->error() == QNetworkReply::NoError;
-        let fileName = file ? file->fileName() : QString();
+        auto fileName = file ? file->fileName() : QString();
 
         if (file) {
             file->close();

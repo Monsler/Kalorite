@@ -3,10 +3,7 @@
 #include "Mixer.hpp"
 #include <QPainter>
 #include <QPainterPath>
-#include <QPaintEvent>
 #include <QMouseEvent>
-#include <QMenu>
-#include <QAction>
 #include <QFileInfo>
 #include <cmath>
 #include <random>
@@ -68,8 +65,8 @@ static int getCharIndex(char c) {
     return 12; // default to space
 }
 
-WinampDisplay::WinampDisplay(QWidget* parent)
-    : QWidget(parent), m_decoder(nullptr)
+WinampDisplay::WinampDisplay(QQuickItem* parent)
+    : QQuickPaintedItem(parent)
 {
     // Initialize frequencies
     m_bands.resize(NUM_BANDS);
@@ -79,39 +76,18 @@ WinampDisplay::WinampDisplay(QWidget* parent)
 
     // Refresh display at ~60 FPS (16ms)
     m_timerId = startTimer(16);
-    
-    // Set minimal size
-    setMinimumSize(385, 100);
+
+    setAcceptedMouseButtons(Qt::LeftButton | Qt::RightButton);
+    setImplicitWidth(300);
+    setImplicitHeight(120);
 }
 
 void WinampDisplay::setMixer(Mixer* mixer) {
     m_mixer = mixer;
 }
 
-WinampDisplay::~WinampDisplay() {
-    if (m_decoder) {
-        m_decoder->stop();
-    }
-}
-
 void WinampDisplay::loadAudioFile(const QString& filePath) {
-    if (m_decoder) {
-        m_decoder->stop();
-        delete m_decoder;
-        m_decoder = nullptr;
-    }
-    m_spectrumFrames.clear();
     m_currentFilePath = filePath;
-    if (filePath.isEmpty()) return;
-
-    // Disabled to prevent ffmpeg from suspending the application
-    // m_decoder = new QAudioDecoder(this);
-    // m_decoder->setSource(QUrl::fromLocalFile(filePath));
-
-    // connect(m_decoder, &QAudioDecoder::bufferReady, this, &WinampDisplay::onBufferReady);
-    // connect(m_decoder, &QAudioDecoder::finished, this, &WinampDisplay::onDecoderFinished);
-
-    // m_decoder->start();
 }
 
 int WinampDisplay::computeBitrateKbps() const {
@@ -122,27 +98,6 @@ int WinampDisplay::computeBitrateKbps() const {
     if (bytes <= 0) return 0;
     // kbps = bytes * 8 / durationSec / 1000
     return (int)((bytes * 8.0) / (m_durationMs / 1000.0) / 1000.0);
-}
-
-void WinampDisplay::onBufferReady() {
-    /*
-    if (!m_decoder) return;
-    QAudioBuffer buffer = m_decoder->read();
-    if (!buffer.isValid()) return;
-
-    qint64 timeMs = buffer.startTime() / 1000;
-    QVector<double> bandValues = AudioSpectrumAnalyzer::analyzeBuffer(buffer, NUM_BANDS);
-    m_spectrumFrames[timeMs] = bandValues;
-    */
-}
-
-void WinampDisplay::onDecoderFinished() {
-    /*
-    if (m_decoder) {
-        m_decoder->deleteLater();
-        m_decoder = nullptr;
-    }
-    */
 }
 
 void WinampDisplay::setPlaybackState(bool playing, int positionMs, int durationMs) {
@@ -165,14 +120,10 @@ void WinampDisplay::setModernMode(bool modern) {
 
 void WinampDisplay::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::RightButton) {
-        emit contextMenuRequested(event->globalPosition().toPoint());
+        emit contextMenuRequested(event->position());
     } else {
-        QWidget::mousePressEvent(event);
+        QQuickPaintedItem::mousePressEvent(event);
     }
-}
-
-QSize WinampDisplay::sizeHint() const {
-    return QSize(300, 120);
 }
 
 void WinampDisplay::timerEvent(QTimerEvent* event) {
@@ -180,7 +131,7 @@ void WinampDisplay::timerEvent(QTimerEvent* event) {
         updateSimulation();
         update();
     } else {
-        QWidget::timerEvent(event);
+        QQuickPaintedItem::timerEvent(event);
     }
 }
 
@@ -264,15 +215,13 @@ void WinampDisplay::updateSimulation() {
     }
 }
 
-void WinampDisplay::paintEvent(QPaintEvent* event) {
-    Q_UNUSED(event);
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing, m_modernMode);
+void WinampDisplay::paint(QPainter* painter) {
+    painter->setRenderHint(QPainter::Antialiasing, m_modernMode);
 
     if (m_modernMode) {
-        drawModernDisplay(painter);
+        drawModernDisplay(*painter);
     } else {
-        drawRetroDisplay(painter);
+        drawRetroDisplay(*painter);
     }
 }
 
@@ -301,7 +250,7 @@ void WinampDisplay::drawPixelText(QPainter& painter, const QString& text, int x,
 
 void WinampDisplay::drawRetroDisplay(QPainter& painter) {
     // 1. Draw background (classic dark gray/green grid pattern)
-    painter.fillRect(rect(), QColor(10, 12, 10));
+    painter.fillRect(bounds(), QColor(10, 12, 10));
 
     // Draw background pixel grids
     painter.setPen(QColor(16, 20, 16));
@@ -424,7 +373,7 @@ void WinampDisplay::drawRetroDisplay(QPainter& painter) {
 
 void WinampDisplay::drawModernDisplay(QPainter& painter) {
     // 1. Draw solid black background
-    painter.fillRect(rect(), QColor(0, 0, 0));
+    painter.fillRect(bounds(), QColor(0, 0, 0));
 
     // 2. Draw retro-futuristic white time display (no glow)
     int minutes = (m_positionMs / 60000) % 60;
@@ -511,13 +460,13 @@ void WinampDisplay::drawModernDisplay(QPainter& painter) {
     }
 
     // 5. Bulbous Screen Vignette & Glass glare effect
-    QRadialGradient vignette(rect().center(), width() * 0.7);
+    QRadialGradient vignette(bounds().center(), width() * 0.7);
     vignette.setColorAt(0.0, QColor(0, 0, 0, 0));
     vignette.setColorAt(0.8, QColor(0, 0, 0, 50));
     vignette.setColorAt(1.0, QColor(0, 0, 0, 150));
     painter.setPen(Qt::NoPen);
     painter.setBrush(vignette);
-    painter.drawRect(rect());
+    painter.drawRect(bounds());
 
     // Screen Glare reflection (curved glass screen look)
     QLinearGradient glareGrad(0, 0, 0, height() * 0.5);

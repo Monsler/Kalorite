@@ -1,6 +1,6 @@
 #include "PluginManager.hpp"
 #include "LuaApi.hpp"
-#include "MainWindow.hpp"
+#include "PluginApi.hpp"
 
 extern "C" {
 #include "lua.h"
@@ -8,8 +8,7 @@ extern "C" {
 #include "lauxlib.h"
 }
 
-#include <QMenu>
-#include <QAction>
+#include "MenuNode.hpp"
 #include <QIcon>
 #include <QDir>
 #include <QFile>
@@ -46,13 +45,13 @@ QString optField(lua_State* L, int tableIdx, const char* key, const QString& def
 
 // ---------------------------------------------------------------------------
 
-PluginManager::PluginManager(MainWindow* window)
-    : QObject(window), m_window(window) {
-    connect(m_window, &MainWindow::pluginTrackChanged,
+PluginManager::PluginManager(PluginApi* api)
+    : QObject(api), m_api(api) {
+    connect(m_api, &PluginApi::pluginTrackChanged,
             this, &PluginManager::onTrackChanged);
-    connect(m_window, &MainWindow::pluginPlaybackStateChanged,
+    connect(m_api, &PluginApi::pluginPlaybackStateChanged,
             this, &PluginManager::onPlaybackStateChanged);
-    connect(m_window, &MainWindow::pluginTrackFinished,
+    connect(m_api, &PluginApi::pluginTrackFinished,
             this, &PluginManager::onTrackFinished);
 }
 
@@ -170,7 +169,7 @@ bool PluginManager::installPlugin(const QString& sourceLuaPath) {
     QString dest = pluginsDir() + "/" + fi.fileName();
 
     if (QFile::exists(dest)) {
-        auto r = QMessageBox::question(m_window, QObject::tr("Add plugin"),
+        auto r = QMessageBox::question(nullptr, QObject::tr("Add plugin"),
             QObject::tr("A plugin named \"%1\" already exists. Overwrite?").arg(fi.fileName()),
             QMessageBox::Yes | QMessageBox::No);
         if (r != QMessageBox::Yes) return false;
@@ -178,7 +177,7 @@ bool PluginManager::installPlugin(const QString& sourceLuaPath) {
     }
 
     if (!QFile::copy(sourceLuaPath, dest)) {
-        QMessageBox::critical(m_window, QObject::tr("Add plugin"),
+        QMessageBox::critical(nullptr, QObject::tr("Add plugin"),
             QObject::tr("Failed to copy the plugin into %1.").arg(pluginsDir()));
         return false;
     }
@@ -193,7 +192,7 @@ bool PluginManager::installPlugin(const QString& sourceLuaPath) {
 // ---------------------------------------------------------------------------
 
 void PluginManager::deletePlugin(Plugin* p) {
-    auto r = QMessageBox::question(m_window, QObject::tr("Remove plugin"),
+    auto r = QMessageBox::question(nullptr, QObject::tr("Remove plugin"),
         QObject::tr("Remove the plugin \"%1\"? Its file will be deleted.").arg(p->name),
         QMessageBox::Yes | QMessageBox::No);
     if (r != QMessageBox::Yes) return;
@@ -211,53 +210,49 @@ void PluginManager::deletePlugin(Plugin* p) {
     if (m_menu) populateMenu(m_menu);
 }
 
-void PluginManager::populateMenu(QMenu* menu) {
+void PluginManager::populateMenu(MenuNode* menu) {
     m_menu = menu;
     menu->clear();
 
     if (m_plugins.isEmpty()) {
-        QAction* empty = menu->addAction(QObject::tr("(no plugins installed)"));
-        empty->setEnabled(false);
+        menu->addItem(QObject::tr("(no plugins installed)"))->setEnabled(false);
         return;
     }
 
     for (Plugin* p : m_plugins) {
-        QMenu* sub = menu->addMenu(p->name);
+        MenuNode* sub = menu->addItem(p->name);
 
-        if (!p->menuItems.isEmpty()) {
-            for (const auto& item : p->menuItems) {
-                int ref = item.second;
-                QAction* act = sub->addAction(item.first);
-                connect(act, &QAction::triggered, this, [this, p, ref]() {
-                    lua_State* L = p->L;
-                    int base = pushTraceback(L);
-                    lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
-                    if (lua_pcall(L, 0, 0, base) != 0) {
-                        QString err = QString::fromUtf8(lua_tostring(L, -1));
-                        lua_pop(L, 1);
-                        showError(p, err);
-                    }
-                    lua_remove(L, base);
-                });
-            }
+        for (const auto& item : p->menuItems) {
+            int ref = item.second;
+            MenuNode* act = sub->addItem(item.first);
+            connect(act, &MenuNode::triggered, this, [this, p, ref]() {
+                lua_State* L = p->L;
+                int base = pushTraceback(L);
+                lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+                if (lua_pcall(L, 0, 0, base) != 0) {
+                    QString err = QString::fromUtf8(lua_tostring(L, -1));
+                    lua_pop(L, 1);
+                    showError(p, err);
+                }
+                lua_remove(L, base);
+            });
         }
 
         sub->addSeparator();
         QString info = p->description.isEmpty()
             ? QObject::tr("Version %1").arg(p->version.isEmpty() ? "?" : p->version)
             : p->description;
-        QAction* about = sub->addAction(QObject::tr("About…"));
-        connect(about, &QAction::triggered, this, [this, p, info]() {
-            QMessageBox::information(m_window, p->name,
+        MenuNode* about = sub->addItem(QObject::tr("About…"));
+        connect(about, &MenuNode::triggered, this, [this, p, info]() {
+            QMessageBox::information(nullptr, p->name,
                 QString("%1\n\n%2%3")
                     .arg(info)
                     .arg(p->author.isEmpty() ? "" : QObject::tr("Author: %1\n").arg(p->author))
                     .arg(p->version.isEmpty() ? "" : QObject::tr("Version: %1").arg(p->version)));
         });
 
-        QAction* remove = sub->addAction(QObject::tr("Delete"));
-        remove->setIcon(QIcon::fromTheme("edit-delete"));
-        connect(remove, &QAction::triggered, this, [this, p]() { deletePlugin(p); });
+        MenuNode* remove = sub->addItem(QObject::tr("Delete"), {}, QStringLiteral("edit-delete"));
+        connect(remove, &MenuNode::triggered, this, [this, p]() { deletePlugin(p); });
     }
 }
 
@@ -333,7 +328,7 @@ void PluginManager::onTrackFinished(QString path) {
 void PluginManager::showError(const Plugin* p, const QString& message) {
     QString title = p ? QObject::tr("Error in plugin \"%1\"").arg(p->name)
                       : QObject::tr("Plugin error");
-    QMessageBox::critical(m_window, title, message);
+    QMessageBox::critical(nullptr, title, message);
 }
 
 } // namespace Kalorite

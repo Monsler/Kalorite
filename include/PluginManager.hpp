@@ -7,13 +7,13 @@
 #include <QPair>
 #include <functional>
 
-struct lua_State;
 
-class QMenu;
+struct lua_State;
 
 namespace Kalorite {
 
-    class MainWindow;
+    class MenuNode;
+    class PluginApi;
 
     // One loaded LuaJIT plugin. Every plugin lives in its own lua_State so a
     // crash, syntax error or runtime error in one cannot take down the others
@@ -34,8 +34,7 @@ namespace Kalorite {
         QVector<QPair<QString, int>> menuItems;
     };
 
-    // Owns all plugins, wires them to the player through MainWindow's public
-    // plugin surface, builds the "Plugins" menu, and marshals player events
+    // Owns all plugins, wires them to the player through PluginApi, builds the "Plugins" menu, and marshals player events
     // (track changed / playback state / finished) into Lua callbacks.
     //
     // Everything here runs on the GUI thread. Never call into a lua_State from
@@ -44,10 +43,10 @@ namespace Kalorite {
         Q_OBJECT
 
     public:
-        explicit PluginManager(MainWindow* window);
+        explicit PluginManager(PluginApi* api);
         ~PluginManager();
 
-        MainWindow* window() const { return m_window; }
+        PluginApi* api() const { return m_api; }
         QNetworkAccessManager* network() { return &m_net; }
 
         // Directory (created on demand) where plugin .lua files are stored,
@@ -63,7 +62,7 @@ namespace Kalorite {
         bool installPlugin(const QString& sourceLuaPath);
 
         // (Re)build the given menu with a submenu per plugin.
-        void populateMenu(QMenu* menu);
+        void populateMenu(MenuNode* menu);
 
         // Run a plugin table function `fnName` (no args) via a protected call,
         // reporting any error through showError(). Missing function = no-op.
@@ -75,7 +74,7 @@ namespace Kalorite {
         const QVector<Plugin*>& plugins() const { return m_plugins; }
 
     public slots:
-        // Connected to MainWindow's plugin* signals.
+        // Connected to PluginApi's plugin* signals.
         void onTrackChanged(QString path, int index);
         void onPlaybackStateChanged(QString state);
         void onTrackFinished(QString path);
@@ -92,10 +91,10 @@ namespace Kalorite {
         void dispatchEvent(const char* fnName,
                            const std::function<int(lua_State*)>& pushArgs);
 
-        MainWindow* m_window;
+        PluginApi* m_api;
         QVector<Plugin*> m_plugins;
         QNetworkAccessManager m_net;
-        QMenu* m_menu = nullptr;
+        MenuNode* m_menu = nullptr;
     };
 
 } // namespace Kalorite

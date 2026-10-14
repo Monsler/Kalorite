@@ -153,6 +153,18 @@
         <source>Telegram Channel</source>
         <translation>Telegram Channel</translation>
     </message>
+    <message>
+        <source>Search...</source>
+        <translation>Search...</translation>
+    </message>
+    <message>
+        <source>Clear search</source>
+        <translation>Clear search</translation>
+    </message>
+    <message>
+        <source>No tracks found</source>
+        <translation>No tracks found</translation>
+    </message>
 </context>
 <context>
     <name>Kalorite::SongDownloader</name>

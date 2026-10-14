@@ -3,6 +3,14 @@
 <qresource prefix="/audio">
     <file alias="greeting.mp3">data/greeting.mp3</file>
 </qresource>
+<qresource prefix="/qml">
+    <file alias="AboutDialog.qml">qml/AboutDialog.qml</file>
+    <file alias="Host.qml">qml/Host.qml</file>
+    <file alias="EqualizerPanel.qml">qml/EqualizerPanel.qml</file>
+    <file alias="PlaylistPanel.qml">qml/PlaylistPanel.qml</file>
+    <file alias="MainWindow.qml">qml/MainWindow.qml</file>
+    <file alias="VolumeBar.qml">qml/VolumeBar.qml</file>
+</qresource>
 <qresource prefix="/icons">
     <file alias="telegram.svg">data/icons/telegram.svg</file>
 </qresource>

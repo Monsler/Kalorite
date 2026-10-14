@@ -1,9 +1,12 @@
 #pragma once
 
-#include <QWidget>
+#include <QQuickPaintedItem>
 #include <QImage>
+#include <QPointF>
 #include <QVector>
 #include <random>
+
+class QMouseEvent;
 
 namespace Kalorite {
     class Mixer;
@@ -11,11 +14,11 @@ namespace Kalorite {
     // WMP9-style pattern visualizer ("Battery"/"Alchemy" ambience): procedural
     // patterns driven by the live spectrum, rendered onto a feedback canvas for
     // trails, with several modes that crossfade smoothly into each other.
-    class PatternVisualizer : public QWidget {
+    class PatternVisualizer : public QQuickPaintedItem {
         Q_OBJECT
 
     public:
-        explicit PatternVisualizer(QWidget* parent = nullptr);
+        explicit PatternVisualizer(QQuickItem* parent = nullptr);
         ~PatternVisualizer() override = default;
 
         void setMixer(Mixer* mixer);
@@ -23,16 +26,15 @@ namespace Kalorite {
         void setVolume(int volume);
 
     signals:
-        // Emitted (with a global position) on right-click so the window can show
+        // Emitted (in item coordinates) on right-click so the window can show
         // the same context menu as the frequency visualizer.
-        void contextMenuRequested(const QPoint& pos);
+        void contextMenuRequested(const QPointF& pos);
 
     protected:
-        void paintEvent(QPaintEvent* event) override;
+        void paint(QPainter* painter) override;
         void timerEvent(QTimerEvent* event) override;
-        void resizeEvent(QResizeEvent* event) override;
+        void geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry) override;
         void mousePressEvent(QMouseEvent* event) override;
-        QSize sizeHint() const override;
 
     private:
         static const int NUM_MODES = 11;

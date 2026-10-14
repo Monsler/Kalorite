@@ -1,0 +1,157 @@
+#include "PlaylistModel.hpp"
+
+namespace Kalorite {
+
+PlaylistModel::PlaylistModel(QObject* parent) : QAbstractListModel(parent) {}
+
+int PlaylistModel::rowCount(const QModelIndex& parent) const {
+    return parent.isValid() ? 0 : m_visibleRows.size();
+}
+
+QVariant PlaylistModel::data(const QModelIndex& index, int role) const {
+    if (!index.isValid() || index.row() < 0 || index.row() >= m_visibleRows.size()) return {};
+
+    int trackIdx = m_visibleRows.at(index.row());
+    if (trackIdx < 0 || trackIdx >= m_tracks.size()) return {};
+
+    const Track& track = m_tracks.at(trackIdx);
+    switch (role) {
+    case PathRole:          return track.path;
+    case NameRole:          return track.name;
+    case DurationRole:      return track.duration;
+    case QueueRole:         return track.queue;
+    case OriginalIndexRole: return trackIdx;
+    }
+    return {};
+}
+
+QHash<int, QByteArray> PlaylistModel::roleNames() const {
+    return {
+        { PathRole,          "path" },
+        { NameRole,          "name" },
+        { DurationRole,      "duration" },
+        { QueueRole,         "queue" },
+        { OriginalIndexRole, "originalIndex" },
+    };
+}
+
+void PlaylistModel::setCurrentRow(int row) {
+    if (row < 0 || row >= count()) row = -1;
+    if (row == m_currentRow) return;
+
+    m_currentRow = row;
+    emit currentRowChanged();
+}
+
+void PlaylistModel::setFilter(const QString& filter) {
+    if (m_filter == filter) return;
+    m_filter = filter;
+    updateVisibleRows();
+    emit filterChanged();
+}
+
+bool PlaylistModel::matchesFilter(const Track& track) const {
+    if (m_filter.trimmed().isEmpty()) return true;
+    return track.name.contains(m_filter, Qt::CaseInsensitive)
+        || track.path.contains(m_filter, Qt::CaseInsensitive);
+}
+
+void PlaylistModel::updateVisibleRows() {
+    beginResetModel();
+    m_visibleRows.clear();
+    for (int i = 0; i < m_tracks.size(); ++i) {
+        if (matchesFilter(m_tracks.at(i))) {
+            m_visibleRows.append(i);
+        }
+    }
+    endResetModel();
+}
+
+QString PlaylistModel::pathAt(int row) const {
+    if (row < 0 || row >= count()) return QString();
+    return m_tracks.at(row).path;
+}
+
+QString PlaylistModel::durationAt(int row) const {
+    if (row < 0 || row >= count()) return QString();
+    return m_tracks.at(row).duration;
+}
+
+int PlaylistModel::queueAt(int row) const {
+    if (row < 0 || row >= count()) return 0;
+    return m_tracks.at(row).queue;
+}
+
+void PlaylistModel::setQueue(int row, int queue) {
+    if (row < 0 || row >= count()) return;
+
+    m_tracks[row].queue = queue;
+    int vRow = m_visibleRows.indexOf(row);
+    if (vRow >= 0) {
+        emit dataChanged(index(vRow), index(vRow), { QueueRole });
+    }
+}
+
+void PlaylistModel::setDuration(int row, const QString& duration) {
+    if (row < 0 || row >= count()) return;
+
+    m_tracks[row].duration = duration;
+    int vRow = m_visibleRows.indexOf(row);
+    if (vRow >= 0) {
+        emit dataChanged(index(vRow), index(vRow), { DurationRole });
+    }
+}
+
+void PlaylistModel::append(const QString& path, const QString& name, const QString& duration) {
+    const int origIdx = count();
+    Track track{ path, name, duration, 0 };
+    m_tracks.append(track);
+
+    if (matchesFilter(track)) {
+        const int vRow = m_visibleRows.size();
+        beginInsertRows(QModelIndex(), vRow, vRow);
+        m_visibleRows.append(origIdx);
+        endInsertRows();
+    }
+}
+
+void PlaylistModel::removeAt(int row) {
+    if (row < 0 || row >= count()) return;
+
+    m_tracks.removeAt(row);
+    if (row < m_currentRow) --m_currentRow;
+    if (m_currentRow >= count()) m_currentRow = count() - 1;
+
+    updateVisibleRows();
+    emit currentRowChanged();
+}
+
+void PlaylistModel::clear() {
+    beginResetModel();
+    m_tracks.clear();
+    m_visibleRows.clear();
+    m_currentRow = -1;
+    endResetModel();
+    emit currentRowChanged();
+}
+
+// Qt expects the insertion point for a downward move to be one past the target row.
+// The current row follows the moved track, or shifts when it sits between the two positions.
+void PlaylistModel::moveTrack(int from, int to) {
+    if (!m_filter.trimmed().isEmpty()) return;
+    if (from == to || from < 0 || from >= count() || to < 0 || to >= count()) return;
+    if (!beginMoveRows(QModelIndex(), from, from, QModelIndex(), to > from ? to + 1 : to)) return;
+
+    const int previousRow = m_currentRow;
+    if (m_currentRow == from)                              m_currentRow = to;
+    else if (from < m_currentRow && m_currentRow <= to)   --m_currentRow;
+    else if (to <= m_currentRow && m_currentRow < from)   ++m_currentRow;
+
+    m_tracks.move(from, to);
+    m_visibleRows.move(from, to);
+    endMoveRows();
+
+    if (m_currentRow != previousRow) emit currentRowChanged();
+}
+
+} // namespace Kalorite

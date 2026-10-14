@@ -1,6 +1,6 @@
 #include "LuaApi.hpp"
 #include "PluginManager.hpp"
-#include "MainWindow.hpp"
+#include "PluginApi.hpp"
 #include "Mixer.hpp"
 
 extern "C" {
@@ -19,8 +19,6 @@ extern "C" {
 #include <QNetworkReply>
 #include <QMessageBox>
 #include <QInputDialog>
-#include <QLineEdit>
-#include <QStatusBar>
 #include <QVariant>
 #include <QLocale>
 #include <QCoreApplication>
@@ -44,7 +42,7 @@ PluginManager* manager(lua_State* L) {
 
 namespace {
 
-MainWindow* win(lua_State* L) { return manager(L)->window(); }
+PluginApi* api(lua_State* L) { return manager(L)->api(); }
 
 QString argStr(lua_State* L, int i) {
     size_t len = 0;
@@ -73,24 +71,24 @@ void callRef(lua_State* L, int ref, int nargsPushed /* already on stack */) {
 // kalorite.player
 // ---------------------------------------------------------------------------
 
-int l_play(lua_State* L)  { win(L)->pluginPlay();  return 0; }
-int l_pause(lua_State* L) { win(L)->pluginPause(); return 0; }
-int l_stop(lua_State* L)  { win(L)->pluginStop();  return 0; }
-int l_next(lua_State* L)  { win(L)->pluginNext();  return 0; }
-int l_prev(lua_State* L)  { win(L)->pluginPrev();  return 0; }
+int l_play(lua_State* L)  { api(L)->play();  return 0; }
+int l_pause(lua_State* L) { api(L)->pause(); return 0; }
+int l_stop(lua_State* L)  { api(L)->stop();  return 0; }
+int l_next(lua_State* L)  { api(L)->next();  return 0; }
+int l_prev(lua_State* L)  { api(L)->prev();  return 0; }
 
-int l_is_playing(lua_State* L)  { lua_pushboolean(L, win(L)->pluginIsPlaying()); return 1; }
-int l_position_ms(lua_State* L) { lua_pushinteger(L, win(L)->pluginPositionMs()); return 1; }
-int l_duration_ms(lua_State* L) { lua_pushinteger(L, win(L)->pluginDurationMs()); return 1; }
-int l_seek_ms(lua_State* L)     { win(L)->pluginSeekMs((int)luaL_checkinteger(L, 1)); return 0; }
+int l_is_playing(lua_State* L)  { lua_pushboolean(L, api(L)->isPlaying()); return 1; }
+int l_position_ms(lua_State* L) { lua_pushinteger(L, api(L)->positionMs()); return 1; }
+int l_duration_ms(lua_State* L) { lua_pushinteger(L, api(L)->durationMs()); return 1; }
+int l_seek_ms(lua_State* L)     { api(L)->seekMs((int)luaL_checkinteger(L, 1)); return 0; }
 
 int l_current_track(lua_State* L) {
-    MainWindow* w = win(L);
-    int idx = w->pluginCurrentIndex();
+    PluginApi* w = api(L);
+    int idx = w->currentIndex();
     if (idx < 0) { lua_pushnil(L); return 1; }
     lua_newtable(L);
-    lua_pushstring(L, w->pluginPlaylistPath(idx).toUtf8().constData());  lua_setfield(L, -2, "path");
-    lua_pushstring(L, w->pluginPlaylistTitle(idx).toUtf8().constData()); lua_setfield(L, -2, "title");
+    lua_pushstring(L, w->playlistPath(idx).toUtf8().constData());  lua_setfield(L, -2, "path");
+    lua_pushstring(L, w->playlistTitle(idx).toUtf8().constData()); lua_setfield(L, -2, "title");
     lua_pushinteger(L, idx);                                             lua_setfield(L, -2, "index");
     return 1;
 }
@@ -99,36 +97,36 @@ int l_current_track(lua_State* L) {
 // kalorite.mixer
 // ---------------------------------------------------------------------------
 
-int l_get_volume(lua_State* L) { lua_pushinteger(L, win(L)->pluginMixer()->volume); return 1; }
+int l_get_volume(lua_State* L) { lua_pushinteger(L, api(L)->mixer()->volume); return 1; }
 int l_set_volume(lua_State* L) {
     int v = (int)luaL_checkinteger(L, 1);
     if (v < 0) v = 0; if (v > 100) v = 100;
-    win(L)->pluginMixer()->setVolume(v);
+    api(L)->mixer()->setVolume(v);
     return 0;
 }
 int l_set_eq_band(lua_State* L) {
     int band = (int)luaL_checkinteger(L, 1);
     float gain = (float)luaL_checknumber(L, 2);
     if (band < 0 || band > 9) return luaL_error(L, "eq band index must be 0..9");
-    win(L)->pluginMixer()->setEqBand(band, gain);
+    api(L)->mixer()->setEqBand(band, gain);
     return 0;
 }
 int l_set_eq_enabled(lua_State* L) {
-    win(L)->pluginMixer()->setEqEnabled(lua_toboolean(L, 1));
+    api(L)->mixer()->setEqEnabled(lua_toboolean(L, 1));
     return 0;
 }
 int l_set_crossfade(lua_State* L) {
-    Mixer* m = win(L)->pluginMixer();
+    Mixer* m = api(L)->mixer();
     m->setCrossfadeEnabled(lua_toboolean(L, 1));
     if (!lua_isnoneornil(L, 2)) m->setCrossfadeDuration((float)luaL_checknumber(L, 2));
     return 0;
 }
 int l_get_device(lua_State* L) {
-    lua_pushstring(L, win(L)->pluginMixer()->getCurrentDeviceName().c_str());
+    lua_pushstring(L, api(L)->mixer()->getCurrentDeviceName().c_str());
     return 1;
 }
 int l_set_device(lua_State* L) {
-    win(L)->pluginMixer()->setDeviceByName(argStr(L, 1).toStdString());
+    api(L)->mixer()->setDeviceByName(argStr(L, 1).toStdString());
     return 0;
 }
 
@@ -136,19 +134,19 @@ int l_set_device(lua_State* L) {
 // kalorite.playlist
 // ---------------------------------------------------------------------------
 
-int l_pl_count(lua_State* L)  { lua_pushinteger(L, win(L)->pluginPlaylistCount()); return 1; }
-int l_pl_add(lua_State* L)    { win(L)->pluginPlaylistAdd(argStr(L, 1)); return 0; }
-int l_pl_remove(lua_State* L) { win(L)->pluginPlaylistRemove((int)luaL_checkinteger(L, 1)); return 0; }
-int l_pl_clear(lua_State* L)  { win(L)->pluginPlaylistClear(); return 0; }
-int l_pl_current(lua_State* L){ lua_pushinteger(L, win(L)->pluginCurrentIndex()); return 1; }
-int l_pl_play(lua_State* L)   { win(L)->pluginPlayIndex((int)luaL_checkinteger(L, 1)); return 0; }
+int l_pl_count(lua_State* L)  { lua_pushinteger(L, api(L)->playlistCount()); return 1; }
+int l_pl_add(lua_State* L)    { api(L)->playlistAdd(argStr(L, 1)); return 0; }
+int l_pl_remove(lua_State* L) { api(L)->playlistRemove((int)luaL_checkinteger(L, 1)); return 0; }
+int l_pl_clear(lua_State* L)  { api(L)->playlistClear(); return 0; }
+int l_pl_current(lua_State* L){ lua_pushinteger(L, api(L)->currentIndex()); return 1; }
+int l_pl_play(lua_State* L)   { api(L)->playIndex((int)luaL_checkinteger(L, 1)); return 0; }
 int l_pl_get(lua_State* L) {
-    MainWindow* w = win(L);
+    PluginApi* w = api(L);
     int idx = (int)luaL_checkinteger(L, 1);
-    if (idx < 0 || idx >= w->pluginPlaylistCount()) { lua_pushnil(L); return 1; }
+    if (idx < 0 || idx >= w->playlistCount()) { lua_pushnil(L); return 1; }
     lua_newtable(L);
-    lua_pushstring(L, w->pluginPlaylistPath(idx).toUtf8().constData());  lua_setfield(L, -2, "path");
-    lua_pushstring(L, w->pluginPlaylistTitle(idx).toUtf8().constData()); lua_setfield(L, -2, "title");
+    lua_pushstring(L, w->playlistPath(idx).toUtf8().constData());  lua_setfield(L, -2, "path");
+    lua_pushstring(L, w->playlistTitle(idx).toUtf8().constData()); lua_setfield(L, -2, "title");
     lua_pushinteger(L, idx);                                             lua_setfield(L, -2, "index");
     return 1;
 }
@@ -250,31 +248,78 @@ int l_net_download(lua_State* L) {
 // kalorite.ui
 // ---------------------------------------------------------------------------
 
+namespace {
+
+// A dialog can outlive the plugin that opened it; its lua_State is only safe to use while loaded.
+bool pluginStillLoaded(PluginManager* pm, lua_State* L) {
+    for (Plugin* p : pm->plugins()) {
+        if (p->L == L) return true;
+    }
+    return false;
+}
+
+void openMessage(QMessageBox::Icon icon, const QString& title, const QString& text, QWidget* parent) {
+    auto* box = new QMessageBox(icon, title, text, QMessageBox::Ok, parent);
+    box->setAttribute(Qt::WA_DeleteOnClose);
+    box->open();
+}
+
+int refCallback(lua_State* L, int idx) {
+    luaL_checktype(L, idx, LUA_TFUNCTION);
+    lua_pushvalue(L, idx);
+    return luaL_ref(L, LUA_REGISTRYINDEX);
+}
+
+} // anonymous namespace
+
 int l_ui_message(lua_State* L) {
-    QMessageBox::information(win(L), "Kalorite", argStr(L, 1));
+    openMessage(QMessageBox::Information, "Kalorite", argStr(L, 1), nullptr);
     return 0;
 }
 int l_ui_error(lua_State* L) {
-    QMessageBox::critical(win(L), QObject::tr("Plugin"), argStr(L, 1));
+    openMessage(QMessageBox::Critical, QObject::tr("Plugin"), argStr(L, 1), nullptr);
     return 0;
 }
 int l_ui_confirm(lua_State* L) {
-    auto r = QMessageBox::question(win(L), "Kalorite", argStr(L, 1),
-                                   QMessageBox::Yes | QMessageBox::No);
-    lua_pushboolean(L, r == QMessageBox::Yes);
-    return 1;
+    QString text = argStr(L, 1);
+    int ref = refCallback(L, 2);
+    PluginManager* pm = manager(L);
+    auto* box = new QMessageBox(QMessageBox::Question, "Kalorite", text,
+                                QMessageBox::Yes | QMessageBox::No, nullptr);
+    box->setAttribute(Qt::WA_DeleteOnClose);
+    QObject::connect(box, &QMessageBox::finished, box, [pm, L, ref, box](int) {
+        if (!pluginStillLoaded(pm, L)) return;
+        bool yes = box->standardButton(box->clickedButton()) == QMessageBox::Yes;
+        lua_pushboolean(L, yes);
+        callRef(L, ref, 1);
+        luaL_unref(L, LUA_REGISTRYINDEX, ref);
+    });
+    box->open();
+    return 0;
 }
 int l_ui_input(lua_State* L) {
-    bool ok = false;
-    QString def = lua_isnoneornil(L, 2) ? QString() : argStr(L, 2);
-    QString text = QInputDialog::getText(win(L), "Kalorite", argStr(L, 1),
-                                         QLineEdit::Normal, def, &ok);
-    if (ok) lua_pushstring(L, text.toUtf8().constData());
-    else    lua_pushnil(L);
-    return 1;
+    int top = lua_gettop(L);
+    QString prompt = argStr(L, 1);
+    QString def = (top >= 3 && !lua_isnil(L, 2)) ? argStr(L, 2) : QString();
+    int ref = refCallback(L, top);
+    PluginManager* pm = manager(L);
+    auto* dlg = new QInputDialog(nullptr);
+    dlg->setWindowTitle("Kalorite");
+    dlg->setLabelText(prompt);
+    dlg->setTextValue(def);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    QObject::connect(dlg, &QDialog::finished, dlg, [pm, L, ref, dlg](int result) {
+        if (!pluginStillLoaded(pm, L)) return;
+        if (result == QDialog::Accepted) lua_pushstring(L, dlg->textValue().toUtf8().constData());
+        else                             lua_pushnil(L);
+        callRef(L, ref, 1);
+        luaL_unref(L, LUA_REGISTRYINDEX, ref);
+    });
+    dlg->open();
+    return 0;
 }
 int l_ui_notify(lua_State* L) {
-    win(L)->statusBar()->showMessage(argStr(L, 1), 5000);
+    api(L)->notify(argStr(L, 1));
     return 0;
 }
 

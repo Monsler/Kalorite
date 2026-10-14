@@ -227,6 +227,7 @@ end
 
 -- Ensure yt-dlp exists, bootstrapping the standalone binary on request, then
 -- invoke cb(ytdlp_path).
+local bootstrap_ytdlp
 local function with_ytdlp(cb, id)
     local yt = find_ytdlp()
     if yt then cb(yt, id); return end
@@ -246,13 +247,16 @@ local function with_ytdlp(cb, id)
         return
     end
 
-    if not kalorite.ui.confirm(
+    kalorite.ui.confirm(
         "yt-dlp is required to download tracks but was not found.\n\n" ..
         "Download the standalone yt-dlp binary now?\n" ..
-        "(Requires python3 and ffmpeg to be installed.)") then
-        return
-    end
+        "(Requires python3 and ffmpeg to be installed.)", function(yes)
+        if yes then bootstrap_ytdlp(cb, id) end
+    end)
+end
 
+-- Fetch the standalone yt-dlp binary, then invoke cb(path, id).
+bootstrap_ytdlp = function(cb, id)
     os.execute('mkdir -p "' .. home() .. '/.local/share/kalorite/bin"')
     local dest = bundled_ytdlp()
     kalorite.net.download(YTDLP_URL, dest, {
@@ -273,12 +277,7 @@ local function with_ytdlp(cb, id)
     })
 end
 
--- Entry point: prompt for a link (or accept one) and kick off the pipeline.
-local function download_from_link(url)
-    if not url or url == "" then
-        url = kalorite.ui.input("Spotify track link:")
-        if not url then return end
-    end
+local function start_download(url)
     local id = track_id(url)
     if not id then
         kalorite.ui.error("That doesn't look like a Spotify *track* link.\n" ..
@@ -286,6 +285,14 @@ local function download_from_link(url)
         return
     end
     with_ytdlp(run_pipeline, id)
+end
+
+-- Entry point: prompt for a link (or accept one) and kick off the pipeline.
+local function download_from_link(url)
+    if url and url ~= "" then return start_download(url) end
+    kalorite.ui.input("Spotify track link:", function(text)
+        if text then start_download(text) end
+    end)
 end
 
 -- Lifecycle & menu ---------------------------------------------------------

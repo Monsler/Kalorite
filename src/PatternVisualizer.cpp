@@ -3,8 +3,8 @@
 #include "Mixer.hpp"
 #include <QPainter>
 #include <QPainterPath>
-#include <QPaintEvent>
 #include <QMouseEvent>
+#include <QQuickWindow>
 #include <cmath>
 
 namespace Kalorite {
@@ -14,8 +14,8 @@ namespace {
     constexpr double BLEND_SECONDS = 4.0;  // crossfade duration between modes
 }
 
-PatternVisualizer::PatternVisualizer(QWidget* parent)
-    : QWidget(parent)
+PatternVisualizer::PatternVisualizer(QQuickItem* parent)
+    : QQuickPaintedItem(parent)
 {
     m_bands.resize(NUM_BANDS);
     m_bands.fill(0.0);
@@ -25,7 +25,9 @@ PatternVisualizer::PatternVisualizer(QWidget* parent)
     m_currentMode = dist(m_rng);
     m_nextMode = pickNextMode();
     m_timerId = startTimer(16); // ~60 FPS
-    setMinimumSize(160, 100);
+    setImplicitWidth(200);
+    setImplicitHeight(120);
+    setAcceptedMouseButtons(Qt::LeftButton | Qt::RightButton);
 }
 
 int PatternVisualizer::pickNextMode() {
@@ -49,14 +51,14 @@ void PatternVisualizer::setVolume(int volume) {
     m_volume = volume;
 }
 
-QSize PatternVisualizer::sizeHint() const {
-    return QSize(200, 120);
-}
+void PatternVisualizer::geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry) {
+    QQuickPaintedItem::geometryChange(newGeometry, oldGeometry);
+    if (newGeometry.size() == oldGeometry.size()) return;
 
-void PatternVisualizer::resizeEvent(QResizeEvent* event) {
-    QWidget::resizeEvent(event);
-    m_canvas = QImage(size() * devicePixelRatio(), QImage::Format_ARGB32_Premultiplied);
-    m_canvas.setDevicePixelRatio(devicePixelRatio());
+    const qreal dpr = window() ? window()->devicePixelRatio() : 1.0;
+    m_canvas = QImage(QSize(qRound(newGeometry.width() * dpr), qRound(newGeometry.height() * dpr)),
+                      QImage::Format_ARGB32_Premultiplied);
+    m_canvas.setDevicePixelRatio(dpr);
     m_canvas.fill(Qt::black);
 }
 
@@ -65,15 +67,16 @@ void PatternVisualizer::mousePressEvent(QMouseEvent* event) {
         // Manual mode skip: jump straight into a crossfade to the next mode.
         if (m_modeClock < HOLD_SECONDS) m_modeClock = HOLD_SECONDS;
     } else if (event->button() == Qt::RightButton) {
-        emit contextMenuRequested(event->globalPosition().toPoint());
+        emit contextMenuRequested(event->position());
+        event->accept();
         return;
     }
-    QWidget::mousePressEvent(event);
+    QQuickPaintedItem::mousePressEvent(event);
 }
 
 void PatternVisualizer::timerEvent(QTimerEvent* event) {
     if (event->timerId() != m_timerId) {
-        QWidget::timerEvent(event);
+        QQuickPaintedItem::timerEvent(event);
         return;
     }
 
@@ -133,14 +136,14 @@ void PatternVisualizer::renderFrame() {
     p.setRenderHint(QPainter::SmoothPixmapTransform, true);
 
     QImage prev = m_canvas.copy();
-    p.fillRect(QRect(QPoint(0, 0), size()), Qt::black);
+    p.fillRect(QRectF(0, 0, width(), height()), Qt::black);
     const double shrink = 0.975;
     p.save();
     p.translate(width() / 2.0, height() / 2.0);
     p.scale(shrink, shrink);
     p.translate(-width() / 2.0, -height() / 2.0);
     p.setOpacity(0.96);
-    p.drawImage(QRect(QPoint(0, 0), size()), prev);
+    p.drawImage(QRectF(0, 0, width(), height()), prev);
     p.restore();
 
     if (m_blend <= 0.0) {
@@ -450,7 +453,7 @@ void PatternVisualizer::drawFlowField(QPainter& p, double weight) {
 void PatternVisualizer::renderPlasmaField(QPainter& p, double weight, double spokes,
                                           double hueOffset) {
     const int bw = 150;
-    int bh = std::max(1, bw * height() / std::max(1, width()));
+    int bh = std::max(1, int(bw * height() / std::max(1.0, width())));
     if (m_plasmaBuf.width() != bw || m_plasmaBuf.height() != bh) {
         m_plasmaBuf = QImage(bw, bh, QImage::Format_RGB32);
     }
@@ -491,7 +494,7 @@ void PatternVisualizer::renderPlasmaField(QPainter& p, double weight, double spo
     }
 
     p.setOpacity(weight);
-    p.drawImage(QRect(0, 0, width(), height()), m_plasmaBuf);
+    p.drawImage(QRectF(0, 0, width(), height()), m_plasmaBuf);
     p.setOpacity(1.0);
 }
 
@@ -552,17 +555,15 @@ void PatternVisualizer::drawAmbienceSpokes(QPainter& p, double weight) {
     p.restore();
 }
 
-void PatternVisualizer::paintEvent(QPaintEvent* event) {
-    Q_UNUSED(event);
-    QPainter painter(this);
+void PatternVisualizer::paint(QPainter* painter) {
     if (!m_canvas.isNull()) {
-        painter.drawImage(0, 0, m_canvas);
+        painter->drawImage(0, 0, m_canvas);
     } else {
-        painter.fillRect(rect(), Qt::black);
+        painter->fillRect(QRectF(0, 0, width(), height()), Qt::black);
     }
     // Thin frame to match the neighboring wave display
-    painter.setPen(QColor(70, 70, 70));
-    painter.drawRect(0, 0, width() - 1, height() - 1);
+    painter->setPen(QColor(70, 70, 70));
+    painter->drawRect(QRectF(0, 0, width() - 1, height() - 1));
 }
 
 } // namespace Kalorite
