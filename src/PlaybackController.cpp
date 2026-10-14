@@ -96,11 +96,21 @@ void PlaybackController::skipNext() {
             selectTrack(queued);
             return;
         }
+        int next = m_playlist->currentRow() + 1;
+        if (next >= m_playlist->count()) next = 0;
+        selectTrack(next);
+        return;
     }
     selectTrack(m_playlist->currentRow() + 1);
 }
 
 void PlaybackController::skipPrevious() {
+    if (m_loopType == 2) {
+        int prev = m_playlist->currentRow() - 1;
+        if (prev < 0) prev = m_playlist->count() - 1;
+        selectTrack(prev);
+        return;
+    }
     selectTrack(m_playlist->currentRow() - 1);
 }
 
@@ -240,10 +250,18 @@ void PlaybackController::onCrossfadeAdvance() {
 }
 
 void PlaybackController::onRowsReordered() {
-    int row = m_playlist->rowForPath(QString::fromStdString(m_currentAudio));
-    if (row >= 0) {
-        m_currentId = row;
-        m_playlist->setCurrentRow(row);
+    if (m_isPlaying) {
+        int row = m_playlist->rowForPath(QString::fromStdString(m_currentAudio));
+        if (row >= 0) {
+            m_currentId = row;
+            m_playlist->setCurrentRow(row);
+        }
+    } else {
+        int row = m_playlist->currentRow();
+        if (row >= 0 && row < m_playlist->count()) {
+            m_currentId = row;
+            loadTrack(m_playlist->pathAt(row).toStdString());
+        }
     }
 }
 

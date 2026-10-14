@@ -234,8 +234,14 @@ void PlaylistModel::moveTrack(int from, int to) {
     else if (to <= m_currentRow && m_currentRow < from)   ++m_currentRow;
 
     m_tracks.move(from, to);
-    m_visibleRows.move(from, to);
+    for (int i = 0; i < m_visibleRows.size(); ++i) {
+        m_visibleRows[i] = i;
+    }
     endMoveRows();
+
+    const int low = qMin(from, to);
+    const int high = qMax(from, to);
+    emit dataChanged(index(low), index(high), { OriginalIndexRole });
 
     if (m_currentRow != previousRow) emit currentRowChanged();
 }

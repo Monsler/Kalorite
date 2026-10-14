@@ -17,52 +17,63 @@ namespace Kalorite {
         ma_uint32 channelCount = pDevice->playback.channels;
         ma_uint32 sampleCount = frameCount * channelCount;
 
-        // 1a. Crossfade volume ramp: both sounds are playing simultaneously and we
-        // smoothly ramp the incoming sound up while ramping the outgoing one down,
-        // driven by the incoming sound's playback cursor.
-        if (pMixer->m_crossfadeActive) {
-            bool s1 = pMixer->m_sound1Initialized && ma_sound_is_playing(&pMixer->m_sound1);
-            bool s2 = pMixer->m_sound2Initialized && ma_sound_is_playing(&pMixer->m_sound2);
-            if (s1 && s2) {
-                ma_sound* in  = (pMixer->m_activeSoundIndex == 1) ? &pMixer->m_sound1 : &pMixer->m_sound2;
-                ma_sound* out = (pMixer->m_activeSoundIndex == 1) ? &pMixer->m_sound2 : &pMixer->m_sound1;
-                float cur = 0.0f;
-                ma_sound_get_cursor_in_seconds(in, &cur);
-                float ratio = cur / pMixer->m_crossfadeDurationSec;
-                if (ratio < 0.0f) ratio = 0.0f;
-                if (ratio > 1.0f) ratio = 1.0f;
-                float vol = float(pMixer->volume) / 100.0f;
-                ma_sound_set_volume(in, ratio * vol);
-                ma_sound_set_volume(out, (1.0f - ratio) * vol);
-                if (ratio >= 1.0f) {
-                    ma_sound_stop(out);
-                    pMixer->m_crossfadeActive = false;
+        // 1. Crossfade and end-of-track detection in audio callback thread.
+        // Use try_to_lock so the real-time audio thread never blocks if the GUI
+        // thread is loading/unloading a track or modifying sound slots.
+        {
+            std::unique_lock<std::mutex> soundLock(pMixer->m_soundMutex, std::try_to_lock);
+            if (soundLock.owns_lock()) {
+                // 1a. Crossfade volume ramp: both sounds are playing simultaneously and we
+                // smoothly ramp the incoming sound up while ramping the outgoing one down,
+                // driven by the incoming sound's playback cursor.
+                if (pMixer->m_crossfadeActive) {
+                    bool s1 = pMixer->m_sound1Initialized && ma_sound_is_playing(&pMixer->m_sound1);
+                    bool s2 = pMixer->m_sound2Initialized && ma_sound_is_playing(&pMixer->m_sound2);
+                    if (s1 && s2) {
+                        ma_sound* in  = (pMixer->m_activeSoundIndex == 1) ? &pMixer->m_sound1 : &pMixer->m_sound2;
+                        ma_sound* out = (pMixer->m_activeSoundIndex == 1) ? &pMixer->m_sound2 : &pMixer->m_sound1;
+                        float cur = 0.0f;
+                        ma_sound_get_cursor_in_seconds(in, &cur);
+                        float dur = pMixer->m_crossfadeDurationSec.load();
+                        float ratio = (dur > 0.001f) ? (cur / dur) : 1.0f;
+                        if (ratio < 0.0f) ratio = 0.0f;
+                        if (ratio > 1.0f) ratio = 1.0f;
+                        float vol = float(pMixer->volume) / 100.0f;
+                        ma_sound_set_volume(in, ratio * vol);
+                        ma_sound_set_volume(out, (1.0f - ratio) * vol);
+                        if (ratio >= 1.0f) {
+                            ma_sound_stop(out);
+                            pMixer->m_crossfadeActive = false;
+                        }
+                    } else {
+                        pMixer->m_crossfadeActive = false;
+                    }
                 }
-            } else {
-                pMixer->m_crossfadeActive = false;
-            }
-        }
 
-        // 1b. End-of-track detection: request the next track shortly before the
-        // active sound ends so a crossfade/gapless transition can begin in time.
-        if (pMixer->m_crossfadeEnabled || pMixer->m_gaplessEnabled) {
-            ma_sound* active = NULL;
-            if (pMixer->m_activeSoundIndex == 1 && pMixer->m_sound1Initialized) active = &pMixer->m_sound1;
-            else if (pMixer->m_activeSoundIndex == 2 && pMixer->m_sound2Initialized) active = &pMixer->m_sound2;
+                // 1b. End-of-track detection: request the next track shortly before the
+                // active sound ends so a crossfade/gapless transition can begin in time.
+                // Uses the pre-cached duration to avoid calling ma_sound_get_length_in_seconds
+                // inside the real-time audio callback (which decodes entire MP3 files on every buffer).
+                if (pMixer->m_crossfadeEnabled || pMixer->m_gaplessEnabled) {
+                    ma_sound* active = NULL;
+                    float lenSec = 0.0f;
+                    if (pMixer->m_activeSoundIndex == 1 && pMixer->m_sound1Initialized) {
+                        active = &pMixer->m_sound1;
+                        lenSec = pMixer->m_sound1DurationSec;
+                    } else if (pMixer->m_activeSoundIndex == 2 && pMixer->m_sound2Initialized) {
+                        active = &pMixer->m_sound2;
+                        lenSec = pMixer->m_sound2DurationSec;
+                    }
 
-            if (active && ma_sound_is_playing(active) && !pMixer->m_crossfadeTriggered) {
-                float lenSec = 0.0f;
-                float curSec = 0.0f;
-                ma_sound_get_length_in_seconds(active, &lenSec);
-                ma_sound_get_cursor_in_seconds(active, &curSec);
-                // Crossfade takes precedence when both are on: it needs the full
-                // crossfade duration of lead time, whereas gapless only needs a
-                // hair before the end. Using the gapless 0.15s here would make the
-                // transition fire far too late for the crossfade to ever run.
-                float threshold = pMixer->m_crossfadeEnabled ? pMixer->m_crossfadeDurationSec : 0.15f;
-                if (lenSec > threshold && curSec >= (lenSec - threshold)) {
-                    pMixer->m_crossfadeTriggered = true;
-                    QMetaObject::invokeMethod(pMixer, "playbackFinished", Qt::QueuedConnection);
+                    if (active && ma_sound_is_playing(active) && !pMixer->m_crossfadeTriggered) {
+                        float curSec = 0.0f;
+                        ma_sound_get_cursor_in_seconds(active, &curSec);
+                        float threshold = pMixer->m_crossfadeEnabled ? pMixer->m_crossfadeDurationSec.load() : 0.15f;
+                        if (lenSec > threshold && curSec >= (lenSec - threshold)) {
+                            pMixer->m_crossfadeTriggered = true;
+                            QMetaObject::invokeMethod(pMixer, "playbackFinished", Qt::QueuedConnection);
+                        }
+                    }
                 }
             }
         }
@@ -91,9 +102,18 @@ namespace Kalorite {
         {
             std::lock_guard<std::mutex> lock(pMixer->m_eqMutex);
             if (pMixer->m_eqEnabled) {
+                bool anyGain = false;
                 for (int i = 0; i < 10; ++i) {
-                    if (pMixer->m_eqFiltersInitialized[i]) {
-                        ma_peak2_process_pcm_frames(&pMixer->m_eqFilters[i], pFloatOutput, pFloatOutput, frameCount);
+                    if (std::fabs(pMixer->m_eqGains[i]) > 0.01f) {
+                        anyGain = true;
+                        break;
+                    }
+                }
+                if (anyGain) {
+                    for (int i = 0; i < 10; ++i) {
+                        if (pMixer->m_eqFiltersInitialized[i]) {
+                            ma_peak2_process_pcm_frames(&pMixer->m_eqFilters[i], pFloatOutput, pFloatOutput, frameCount);
+                        }
                     }
                 }
             }
@@ -228,6 +248,8 @@ namespace Kalorite {
 
         float vol = float(volume) / 100.0f;
 
+        std::lock_guard<std::mutex> lock(m_soundMutex);
+
         if (m_crossfadeEnabled || m_gaplessEnabled) {
             // Collapse any crossfade still in flight so we only ever juggle two
             // slots: the current active sound (outgoing) and one free slot.
@@ -237,6 +259,8 @@ namespace Kalorite {
             int incoming = (m_activeSoundIndex == 1) ? 2 : 1;
             ma_sound* inSound = (incoming == 1) ? &m_sound1 : &m_sound2;
             bool*     inInit  = (incoming == 1) ? &m_sound1Initialized : &m_sound2Initialized;
+            float*    inLenSec = (incoming == 1) ? &m_sound1DurationSec : &m_sound2DurationSec;
+            int*      inLenMs  = (incoming == 1) ? &m_sound1DurationMs : &m_sound2DurationMs;
 
             ma_sound* outSound = NULL;
             bool*     outInit  = NULL;
@@ -247,8 +271,11 @@ namespace Kalorite {
 
             // Free the target slot (may hold a stopped leftover from a prior swap).
             if (*inInit) {
+                ma_sound_stop(inSound);
                 ma_sound_uninit(inSound);
                 *inInit = false;
+                *inLenSec = 0.0f;
+                *inLenMs = 0;
             }
 
             ma_result res = ma_sound_init_from_file(&m_engine, trackPath.c_str(), flags, NULL, NULL, inSound);
@@ -256,6 +283,11 @@ namespace Kalorite {
             if (res == MA_SUCCESS) {
                 *inInit = true;
                 m_activeSoundIndex = incoming;
+
+                float lenSec = 0.0f;
+                ma_sound_get_length_in_seconds(inSound, &lenSec);
+                *inLenSec = lenSec;
+                *inLenMs = qRound(lenSec * 1000.0f);
 
                 if (m_crossfadeEnabled && haveOutgoing) {
                     // Overlap: start the incoming track silently and let the audio
@@ -271,6 +303,13 @@ namespace Kalorite {
                     ma_sound_stop(outSound);
                     ma_sound_uninit(outSound);
                     *outInit = false;
+                    if (incoming == 1) {
+                        m_sound2DurationSec = 0.0f;
+                        m_sound2DurationMs = 0;
+                    } else {
+                        m_sound1DurationSec = 0.0f;
+                        m_sound1DurationMs = 0;
+                    }
                     m_crossfadeActive = false;
                 } else {
                     // Nothing is playing yet — this is just a track being selected
@@ -284,7 +323,23 @@ namespace Kalorite {
             }
         } else {
             // Non-crossfade standard transition
-            stop();
+            if (m_sound1Initialized) {
+                ma_sound_stop(&m_sound1);
+                ma_sound_uninit(&m_sound1);
+                m_sound1Initialized = false;
+            }
+            if (m_sound2Initialized) {
+                ma_sound_stop(&m_sound2);
+                ma_sound_uninit(&m_sound2);
+                m_sound2Initialized = false;
+            }
+            m_sound1DurationSec = 0.0f;
+            m_sound1DurationMs = 0;
+            m_sound2DurationSec = 0.0f;
+            m_sound2DurationMs = 0;
+            m_activeSoundIndex = 0;
+            m_crossfadeActive = false;
+
             ma_result res = ma_sound_init_from_file(&m_engine, trackPath.c_str(), flags, NULL, NULL, &m_sound1);
             qDebug() << "ma_sound_init_from_file (no crossfade) result:" << res;
             if (res == MA_SUCCESS) {
@@ -294,6 +349,8 @@ namespace Kalorite {
 
                 float lenSec = 0.0f;
                 ma_sound_get_length_in_seconds(&m_sound1, &lenSec);
+                m_sound1DurationSec = lenSec;
+                m_sound1DurationMs = qRound(lenSec * 1000.0f);
                 qDebug() << "Loaded length in seconds:" << lenSec;
             }
         }
@@ -318,6 +375,7 @@ namespace Kalorite {
             return;
         }
 
+        std::lock_guard<std::mutex> lock(m_soundMutex);
         ma_result res = ma_sound_init_from_data_source(
             &m_engine, src->dataSource(), 0, NULL, &m_sound1);
         if (res != MA_SUCCESS) {
@@ -329,6 +387,10 @@ namespace Kalorite {
         m_cddaSource = src;
         m_sound1Initialized = true;
         m_activeSoundIndex = 1;
+        float lenSec = 0.0f;
+        ma_sound_get_length_in_seconds(&m_sound1, &lenSec);
+        m_sound1DurationSec = lenSec;
+        m_sound1DurationMs = qRound(lenSec * 1000.0f);
         ma_sound_set_volume(&m_sound1, float(volume) / 100.0f);
 #else
         Q_UNUSED(trackPath);
@@ -339,6 +401,7 @@ namespace Kalorite {
     void Mixer::setVolume(int volume) {
         this->volume = volume;
         float volRatio = float(volume) / 100.0f;
+        std::lock_guard<std::mutex> lock(m_soundMutex);
         if (m_sound1Initialized) {
             ma_sound_set_volume(&m_sound1, volRatio);
         }
@@ -356,6 +419,7 @@ namespace Kalorite {
             }
             return;
         }
+        std::lock_guard<std::mutex> lock(m_soundMutex);
         float sec = float(positionMs) / 1000.0f;
         if (m_activeSoundIndex == 1 && m_sound1Initialized) {
             ma_sound_seek_to_second(&m_sound1, sec);
@@ -374,6 +438,7 @@ namespace Kalorite {
             m_bpPlaying = m_bpDecoderInitialized;
             return;
         }
+        std::lock_guard<std::mutex> lock(m_soundMutex);
         if (m_activeSoundIndex == 1 && m_sound1Initialized) {
             ma_sound_start(&m_sound1);
         } else if (m_activeSoundIndex == 2 && m_sound2Initialized) {
@@ -386,6 +451,7 @@ namespace Kalorite {
             m_bpPlaying = false;
             return;
         }
+        std::lock_guard<std::mutex> lock(m_soundMutex);
         if (m_activeSoundIndex == 1 && m_sound1Initialized) {
             ma_sound_stop(&m_sound1);
         } else if (m_activeSoundIndex == 2 && m_sound2Initialized) {
@@ -404,6 +470,8 @@ namespace Kalorite {
                 ma_sound_stop(&m_sound2);
                 ma_sound_uninit(&m_sound2);
                 m_sound2Initialized = false;
+                m_sound2DurationSec = 0.0f;
+                m_sound2DurationMs = 0;
             }
             if (m_sound1Initialized) ma_sound_set_volume(&m_sound1, vol);
         } else if (m_activeSoundIndex == 2) {
@@ -411,6 +479,8 @@ namespace Kalorite {
                 ma_sound_stop(&m_sound1);
                 ma_sound_uninit(&m_sound1);
                 m_sound1Initialized = false;
+                m_sound1DurationSec = 0.0f;
+                m_sound1DurationMs = 0;
             }
             if (m_sound2Initialized) ma_sound_set_volume(&m_sound2, vol);
         }
@@ -418,6 +488,7 @@ namespace Kalorite {
 
     void Mixer::stop() {
         stopBitPerfect();
+        std::lock_guard<std::mutex> lock(m_soundMutex);
         if (m_sound1Initialized) {
             ma_sound_stop(&m_sound1);
             ma_sound_uninit(&m_sound1);
@@ -428,6 +499,10 @@ namespace Kalorite {
             ma_sound_uninit(&m_sound2);
             m_sound2Initialized = false;
         }
+        m_sound1DurationSec = 0.0f;
+        m_sound1DurationMs = 0;
+        m_sound2DurationSec = 0.0f;
+        m_sound2DurationMs = 0;
         m_activeSoundIndex = 0;
         m_crossfadeActive = false;
 
@@ -449,30 +524,28 @@ namespace Kalorite {
             if (m_bpDecoder.outputSampleRate == 0) return 0;
             return (int)(cursor * 1000 / m_bpDecoder.outputSampleRate);
         }
+        std::lock_guard<std::mutex> lock(m_soundMutex);
         float sec = 0.0f;
         if (m_activeSoundIndex == 1 && m_sound1Initialized) {
-            ma_sound_get_cursor_in_seconds(&m_sound1, &sec);
+            ma_sound_get_cursor_in_seconds(const_cast<ma_sound*>(&m_sound1), &sec);
         } else if (m_activeSoundIndex == 2 && m_sound2Initialized) {
-            ma_sound_get_cursor_in_seconds(&m_sound2, &sec);
+            ma_sound_get_cursor_in_seconds(const_cast<ma_sound*>(&m_sound2), &sec);
         }
         return qRound(sec * 1000.0f);
     }
 
     int Mixer::getDurationMs() const {
         if (m_bitPerfectEnabled && m_bpDecoderInitialized) {
-            ma_decoder* dec = const_cast<ma_decoder*>(&m_bpDecoder);
-            ma_uint64 len = 0;
-            ma_decoder_get_length_in_pcm_frames(dec, &len);
-            if (m_bpDecoder.outputSampleRate == 0) return 0;
-            return (int)(len * 1000 / m_bpDecoder.outputSampleRate);
+            std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(m_bpMutex));
+            return m_bpDurationMs;
         }
-        float lenSec = 0.0f;
+        std::lock_guard<std::mutex> lock(m_soundMutex);
         if (m_activeSoundIndex == 1 && m_sound1Initialized) {
-            ma_sound_get_length_in_seconds(&m_sound1, &lenSec);
+            return m_sound1DurationMs;
         } else if (m_activeSoundIndex == 2 && m_sound2Initialized) {
-            ma_sound_get_length_in_seconds(&m_sound2, &lenSec);
+            return m_sound2DurationMs;
         }
-        return qRound(lenSec * 1000.0f);
+        return 0;
     }
 
     int Mixer::getSourceChannels() const {
@@ -483,6 +556,7 @@ namespace Kalorite {
         if (m_bitPerfectEnabled && m_bpDecoderInitialized) {
             return (int)m_bpDecoder.outputChannels;
         }
+        std::lock_guard<std::mutex> lock(m_soundMutex);
         if (m_activeSoundIndex == 1 && m_sound1Initialized) {
             ma_sound_get_data_format(const_cast<ma_sound*>(&m_sound1), &format, &channels, &sampleRate, NULL, 0);
         } else if (m_activeSoundIndex == 2 && m_sound2Initialized) {
@@ -499,6 +573,7 @@ namespace Kalorite {
         if (m_bitPerfectEnabled && m_bpDecoderInitialized) {
             return (int)m_bpDecoder.outputSampleRate;
         }
+        std::lock_guard<std::mutex> lock(m_soundMutex);
         if (m_activeSoundIndex == 1 && m_sound1Initialized) {
             ma_sound_get_data_format(const_cast<ma_sound*>(&m_sound1), &format, &channels, &sampleRate, NULL, 0);
         } else if (m_activeSoundIndex == 2 && m_sound2Initialized) {
@@ -511,10 +586,11 @@ namespace Kalorite {
         if (m_bitPerfectEnabled) {
             return m_bpPlaying;
         }
+        std::lock_guard<std::mutex> lock(m_soundMutex);
         if (m_activeSoundIndex == 1 && m_sound1Initialized) {
-            return ma_sound_is_playing(&m_sound1);
+            return ma_sound_is_playing(const_cast<ma_sound*>(&m_sound1));
         } else if (m_activeSoundIndex == 2 && m_sound2Initialized) {
-            return ma_sound_is_playing(&m_sound2);
+            return ma_sound_is_playing(const_cast<ma_sound*>(&m_sound2));
         }
         return false;
     }
@@ -812,6 +888,14 @@ namespace Kalorite {
         m_bpDecoderInitialized = true;
         m_bpTrackPath = trackPath;
 
+        ma_uint64 len = 0;
+        ma_decoder_get_length_in_pcm_frames(&m_bpDecoder, &len);
+        if (m_bpDecoder.outputSampleRate > 0) {
+            m_bpDurationMs = (int)(len * 1000 / m_bpDecoder.outputSampleRate);
+        } else {
+            m_bpDurationMs = 0;
+        }
+
         // Remember the native format so the optional volume/EQ stage can convert
         // to/from f32, and build an EQ filter set matched to this rate/channels.
         m_bpFormat     = m_bpDecoder.outputFormat;
@@ -846,6 +930,7 @@ namespace Kalorite {
             qWarning() << "Bit Perfect: failed to init native device";
             ma_decoder_uninit(&m_bpDecoder);
             m_bpDecoderInitialized = false;
+            m_bpDurationMs = 0;
             return false;
         }
         m_bpDeviceInitialized = true;
@@ -887,6 +972,7 @@ namespace Kalorite {
             m_bpDeviceInitialized = false;
         }
         m_bpPlaying = false;
+        m_bpDurationMs = 0;
         if (m_bpDecoderInitialized) {
             ma_decoder_uninit(&m_bpDecoder);
             m_bpDecoderInitialized = false;

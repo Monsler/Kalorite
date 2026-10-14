@@ -75,7 +75,7 @@ namespace Kalorite {
                 "codecs and have simple and elegant design.</p>"
                 "<p>by monsler<br>"
                 "<a href='https://github.com/Monsler/Kalorite'>github.com/Monsler/Kalorite</a></p>")
-                .arg("3.5.0")},
+                .arg("4.0.0")},
             {QStringLiteral("background"), palette.color(QPalette::Window)},
             {QStringLiteral("foreground"), palette.color(QPalette::WindowText)},
             {QStringLiteral("linkColor"), palette.color(QPalette::Link)},

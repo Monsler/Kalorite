@@ -121,15 +121,27 @@ namespace Kalorite {
         // notification is not mistaken for an unexpected device loss.
         std::atomic<bool> m_expectedDeviceStop{false};
 
-        bool m_crossfadeEnabled = false;
-        bool m_bitPerfectEnabled = false;
-        bool m_smartGainEnabled = false;
-        bool m_crossfadeTriggered = false;
-        bool m_gaplessEnabled = false;
-        bool m_doubleBufferingEnabled = false;
+        // Sound slots mutex: serializes all sound slot operations (init, uninit, start,
+        // stop, seek, volume) between the GUI thread and the audio callback thread.
+        mutable std::mutex m_soundMutex;
+
+        // Cached track durations (in seconds and ms) so neither the real-time audio
+        // callback nor the GUI timer repeatedly decode/scan the stream on every frame.
+        float m_sound1DurationSec = 0.0f;
+        float m_sound2DurationSec = 0.0f;
+        int m_sound1DurationMs = 0;
+        int m_sound2DurationMs = 0;
+        int m_bpDurationMs = 0;
+
+        std::atomic<bool> m_crossfadeEnabled{false};
+        std::atomic<bool> m_bitPerfectEnabled{false};
+        std::atomic<bool> m_smartGainEnabled{false};
+        std::atomic<bool> m_crossfadeTriggered{false};
+        std::atomic<bool> m_gaplessEnabled{false};
+        std::atomic<bool> m_doubleBufferingEnabled{false};
 
         // Crossfade state
-        float m_crossfadeDurationSec = 3.0f;
+        std::atomic<float> m_crossfadeDurationSec{3.0f};
         bool m_crossfadeActive = false; // both sounds playing, ramping volumes
 
         // Bit-perfect state: dedicated decoder + device matching the source natively
