@@ -60,42 +60,97 @@ Pane {
             required property int index
             required property int originalIndex
             required property string name
+            required property string title
+            required property string artist
             required property string duration
             required property int queue
+            required property bool hasCover
+            required property string coverUrl
 
             width: list.width
             highlighted: row.originalIndex === playlistModel.currentRow
             leftPadding: 6
             rightPadding: 6
-            topPadding: 6
-            bottomPadding: 6
+            topPadding: 4
+            bottomPadding: 4
 
             background: Rectangle {
-                radius: 3
+                radius: 4
                 color: row.highlighted ? row.palette.highlight : "transparent"
             }
 
             contentItem: Item {
-                implicitWidth: durationText.implicitWidth + nameText.implicitWidth + 8
-                implicitHeight: Math.max(durationText.implicitHeight, nameText.implicitHeight)
+                implicitHeight: 40
+
+                Rectangle {
+                    id: coverContainer
+                    width: 36
+                    height: 36
+                    radius: 4
+                    clip: true
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: row.highlighted ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(0, 0, 0, 0.15)
+                    border.width: 1
+                    border.color: row.highlighted ? Qt.rgba(1, 1, 1, 0.25) : Qt.rgba(0, 0, 0, 0.08)
+
+                    Image {
+                        id: coverImg
+                        anchors.fill: parent
+                        source: row.hasCover ? row.coverUrl : ""
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                        visible: row.hasCover && status === Image.Ready
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        visible: !coverImg.visible
+                        text: "♪"
+                        font.pixelSize: 18
+                        font.bold: true
+                        color: row.highlighted ? row.palette.highlightedText : row.palette.text
+                        opacity: 0.4
+                    }
+                }
 
                 Label {
                     id: durationText
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     font.family: "monospace"
+                    font.pixelSize: 11
                     text: row.duration
                     color: row.highlighted ? row.palette.highlightedText : row.palette.text
                 }
-                Label {
-                    id: nameText
-                    anchors.left: parent.left
+
+                Column {
+                    anchors.left: coverContainer.right
+                    anchors.leftMargin: 8
                     anchors.right: durationText.left
                     anchors.rightMargin: 8
                     anchors.verticalCenter: parent.verticalCenter
-                    elide: Text.ElideRight
-                    text: row.queue > 0 ? "[" + row.queue + "] " + row.name : row.name
-                    color: row.highlighted ? row.palette.highlightedText : row.palette.text
+                    spacing: 2
+
+                    Label {
+                        id: titleText
+                        width: parent.width
+                        elide: Text.ElideRight
+                        font.bold: true
+                        font.pixelSize: 12
+                        text: row.queue > 0 ? "[" + row.queue + "] " + (row.title ? row.title : row.name) : (row.title ? row.title : row.name)
+                        color: row.highlighted ? row.palette.highlightedText : row.palette.text
+                    }
+
+                    Label {
+                        id: artistText
+                        width: parent.width
+                        elide: Text.ElideRight
+                        font.pixelSize: 10
+                        text: row.artist && row.artist.trim().length > 0 ? row.artist : qsTranslate("Kalorite::MainWindow", "Unknown Artist")
+                        color: row.highlighted ? row.palette.highlightedText : row.palette.placeholderText
+                        opacity: row.highlighted ? 0.9 : 0.8
+                    }
                 }
             }
 

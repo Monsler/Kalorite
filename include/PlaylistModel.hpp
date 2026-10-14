@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QAbstractListModel>
+#include <QImage>
 #include <QList>
 #include <QString>
 
@@ -19,6 +20,10 @@ namespace Kalorite {
             DurationRole,
             QueueRole,
             OriginalIndexRole,
+            TitleRole,
+            ArtistRole,
+            HasCoverRole,
+            CoverUrlRole,
         };
 
         explicit PlaylistModel(QObject* parent = nullptr);
@@ -37,11 +42,21 @@ namespace Kalorite {
 
         QString pathAt(int row) const;
         QString durationAt(int row) const;
+        QString titleAt(int row) const;
+        QString artistAt(int row) const;
+        bool hasCoverAt(int row) const;
+        QImage coverById(quint64 id) const;
         int queueAt(int row) const;
         void setQueue(int row, int queue);
         void setDuration(int row, const QString& duration);
 
-        void append(const QString& path, const QString& name, const QString& duration = QStringLiteral("--:--"));
+        void append(const QString& path,
+                    const QString& name,
+                    const QString& title,
+                    const QString& artist,
+                    const QString& duration = QStringLiteral("--:--"),
+                    const QImage& cover = QImage(),
+                    bool hasCover = false);
         void removeAt(int row);
         void clear();
 
@@ -53,10 +68,15 @@ namespace Kalorite {
 
     private:
         struct Track {
+            quint64 id = 0;
             QString path;
             QString name;
+            QString title;
+            QString artist;
             QString duration = QStringLiteral("--:--");
             int queue = 0;
+            QImage cover;
+            bool hasCover = false;
         };
 
         bool matchesFilter(const Track& track) const;
@@ -66,6 +86,7 @@ namespace Kalorite {
         QList<int> m_visibleRows;
         QString m_filter;
         int m_currentRow = -1;
+        quint64 m_nextTrackId = 1;
     };
 
 } // namespace Kalorite

@@ -8,6 +8,7 @@
 #include "Playlist.hpp"
 #include "PlaylistModel.hpp"
 #include "PlaylistPanel.hpp"
+#include "CoverImageProvider.hpp"
 #include "EqualizerPanel.hpp"
 #include "ClipboardWatcher.hpp"
 #include "MenuNode.hpp"
@@ -116,6 +117,8 @@ MainWindow::MainWindow() {
     rootContext()->setContextProperty(QStringLiteral("playlistModel"), playlist->model());
     rootContext()->setContextProperty(QStringLiteral("pl"), playlistBackend);
     rootContext()->setContextProperty(QStringLiteral("eq"), eqBackend);
+
+    engine()->addImageProvider(QStringLiteral("cover"), new CoverImageProvider(playlist->model()));
 
     setSource(QUrl(QStringLiteral("qrc:/qml/MainWindow.qml")));
 

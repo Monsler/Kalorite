@@ -21,6 +21,10 @@ QVariant PlaylistModel::data(const QModelIndex& index, int role) const {
     case DurationRole:      return track.duration;
     case QueueRole:         return track.queue;
     case OriginalIndexRole: return trackIdx;
+    case TitleRole:         return track.title.isEmpty() ? track.name : track.title;
+    case ArtistRole:        return track.artist;
+    case HasCoverRole:      return track.hasCover;
+    case CoverUrlRole:      return track.hasCover ? QStringLiteral("image://cover/") + QString::number(track.id) : QString();
     }
     return {};
 }
@@ -32,6 +36,10 @@ QHash<int, QByteArray> PlaylistModel::roleNames() const {
         { DurationRole,      "duration" },
         { QueueRole,         "queue" },
         { OriginalIndexRole, "originalIndex" },
+        { TitleRole,         "title" },
+        { ArtistRole,        "artist" },
+        { HasCoverRole,      "hasCover" },
+        { CoverUrlRole,      "coverUrl" },
     };
 }
 
@@ -52,7 +60,9 @@ void PlaylistModel::setFilter(const QString& filter) {
 
 bool PlaylistModel::matchesFilter(const Track& track) const {
     if (m_filter.trimmed().isEmpty()) return true;
-    return track.name.contains(m_filter, Qt::CaseInsensitive)
+    return track.title.contains(m_filter, Qt::CaseInsensitive)
+        || track.artist.contains(m_filter, Qt::CaseInsensitive)
+        || track.name.contains(m_filter, Qt::CaseInsensitive)
         || track.path.contains(m_filter, Qt::CaseInsensitive);
 }
 
@@ -75,6 +85,29 @@ QString PlaylistModel::pathAt(int row) const {
 QString PlaylistModel::durationAt(int row) const {
     if (row < 0 || row >= count()) return QString();
     return m_tracks.at(row).duration;
+}
+
+QString PlaylistModel::titleAt(int row) const {
+    if (row < 0 || row >= count()) return QString();
+    const Track& t = m_tracks.at(row);
+    return t.title.isEmpty() ? t.name : t.title;
+}
+
+QString PlaylistModel::artistAt(int row) const {
+    if (row < 0 || row >= count()) return QString();
+    return m_tracks.at(row).artist;
+}
+
+bool PlaylistModel::hasCoverAt(int row) const {
+    if (row < 0 || row >= count()) return false;
+    return m_tracks.at(row).hasCover;
+}
+
+QImage PlaylistModel::coverById(quint64 id) const {
+    for (const Track& t : m_tracks) {
+        if (t.id == id) return t.cover;
+    }
+    return {};
 }
 
 int PlaylistModel::queueAt(int row) const {
@@ -102,9 +135,15 @@ void PlaylistModel::setDuration(int row, const QString& duration) {
     }
 }
 
-void PlaylistModel::append(const QString& path, const QString& name, const QString& duration) {
+void PlaylistModel::append(const QString& path,
+                           const QString& name,
+                           const QString& title,
+                           const QString& artist,
+                           const QString& duration,
+                           const QImage& cover,
+                           bool hasCover) {
     const int origIdx = count();
-    Track track{ path, name, duration, 0 };
+    Track track{ m_nextTrackId++, path, name, title, artist, duration, 0, cover, hasCover };
     m_tracks.append(track);
 
     if (matchesFilter(track)) {

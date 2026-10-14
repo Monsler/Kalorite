@@ -1,10 +1,12 @@
 #include "PlaylistPanel.hpp"
 #include "Playlist.hpp"
 #include "PlaylistModel.hpp"
+#include "CoverImageProvider.hpp"
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QPushButton>
 #include <QQmlContext>
+#include <QQmlEngine>
 #include <QQuickWidget>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -33,6 +35,7 @@ PlaylistPanel::PlaylistPanel(QWidget* parent) : QWidget(parent) {
     m_view->setAttribute(Qt::WA_AlwaysStackOnTop);
     m_view->setClearColor(Qt::transparent);
     m_view->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    m_view->engine()->addImageProvider(QStringLiteral("cover"), new CoverImageProvider(m_playlist->model()));
     m_view->rootContext()->setContextProperty(QStringLiteral("playlistModel"), m_playlist->model());
     m_view->rootContext()->setContextProperty(QStringLiteral("pl"), m_backend);
     m_view->setSource(QUrl(QStringLiteral("qrc:/qml/PlaylistPanel.qml")));

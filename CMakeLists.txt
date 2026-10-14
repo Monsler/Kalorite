@@ -24,6 +24,7 @@ if(NOT APPLE AND UNIX)
 
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(CDIO_PARANOIA IMPORTED_TARGET libcdio_paranoia)
+    pkg_check_modules(TAGLIB taglib)
 
 else()
     find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools Network Quick QuickControls2 QuickWidgets)
@@ -102,6 +103,15 @@ if (NOT APPLE)
         message(STATUS "Audio CD support: enabled (libcdio_paranoia)")
     else()
         message(STATUS "Audio CD support: disabled (libcdio_paranoia not found)")
+    endif()
+
+    if(TAGLIB_FOUND)
+        target_compile_definitions(kalorite PRIVATE KALORITE_HAVE_TAGLIB)
+        target_include_directories(kalorite PRIVATE ${TAGLIB_INCLUDE_DIRS} ${TAGLIB_INCLUDE_DIRS}/taglib)
+        target_link_libraries(kalorite PRIVATE ${TAGLIB_LIBRARIES})
+        message(STATUS "TagLib support: enabled (version ${TAGLIB_VERSION})")
+    else()
+        message(STATUS "TagLib support: disabled (taglib-devel not found)")
     endif()
 else()
     target_link_libraries(kalorite PRIVATE

@@ -1,5 +1,6 @@
 #include "Playlist.hpp"
 #include "PlaylistModel.hpp"
+#include "TrackMetadataReader.hpp"
 #include "miniaudio.h"
 #include <QFileInfo>
 #include <algorithm>
@@ -21,6 +22,12 @@ void Playlist::setCurrentRow(int row) { m_model->setCurrentRow(row); }
 
 QString Playlist::pathAt(int row) const { return m_model->pathAt(row); }
 
+QString Playlist::titleAt(int row) const { return m_model->titleAt(row); }
+
+QString Playlist::artistAt(int row) const { return m_model->artistAt(row); }
+
+bool Playlist::hasCoverAt(int row) const { return m_model->hasCoverAt(row); }
+
 int Playlist::rowForPath(const QString& path) const {
     for (int i = 0; i < count(); ++i) {
         if (m_model->pathAt(i) == path) return i;
@@ -32,11 +39,20 @@ bool Playlist::addTrack(const QString& path, const QString& displayName, qint64 
     if (path.isEmpty()) return false;
     if (rowForPath(path) >= 0) return false;
 
-    // CD tracks (and any caller that supplies one) get a friendly label;
-    // everything else falls back to the file name on disk.
-    QString fileName = !displayName.isEmpty()
-        ? displayName
-        : QFileInfo(path).fileName();
+    TrackMetadata meta = TrackMetadataReader::read(path);
+
+    QString title = meta.title;
+    QString artist = meta.artist;
+
+    if (!displayName.isEmpty()) {
+        title = displayName;
+    }
+
+    if (title.isEmpty()) {
+        title = QFileInfo(path).fileName();
+    }
+
+    QString name = !artist.isEmpty() ? (artist + QStringLiteral(" - ") + title) : title;
 
     if (durationMs < 0) {
         durationMs = getAudioDurationMs(path);
@@ -44,7 +60,7 @@ bool Playlist::addTrack(const QString& path, const QString& displayName, qint64 
 
     QString durStr = formatDuration(durationMs);
 
-    m_model->append(path, fileName, durStr);
+    m_model->append(path, name, title, artist, durStr, meta.cover, meta.hasCover);
     emit contentsChanged();
     return true;
 }

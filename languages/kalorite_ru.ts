@@ -16,6 +16,10 @@
         <translation>О программе Kalorite</translation>
     </message>
     <message>
+        <source>Unknown Artist</source>
+        <translation>Неизвестный исполнитель</translation>
+    </message>
+    <message>
         <source>&lt;h2 style='margin-bottom:2px'&gt;Kalorite&lt;/h2&gt;&lt;p style='color:gray;margin-top:0'&gt;Version %1&lt;/p&gt;&lt;p&gt;Kalorite is a lightweight audio player. It supports all modern codecs and have simple and elegant design.&lt;/p&gt;&lt;p&gt;by monsler&lt;br&gt;&lt;a href='https://github.com/Monsler/Kalorite'&gt;github.com/Monsler/Kalorite&lt;/a&gt;&lt;/p&gt;</source>
         <translation>&lt;h2 style='margin-bottom:2px'&gt;Kalorite&lt;/h2&gt;&lt;p style='color:gray;margin-top:0'&gt;Версия %1&lt;/p&gt;&lt;p&gt;Kalorite — лёгкий аудиоплеер. Поддерживает все современные кодеки, простой и элегантный дизайн.&lt;/p&gt;&lt;p&gt;автор: monsler&lt;br&gt;&lt;a href='https://github.com/Monsler/Kalorite'&gt;github.com/Monsler/Kalorite&lt;/a&gt;&lt;/p&gt;</translation>
     </message>

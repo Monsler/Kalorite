@@ -20,6 +20,9 @@ namespace Kalorite {
         int currentRow() const;
         void setCurrentRow(int row);
         QString pathAt(int row) const;
+        QString titleAt(int row) const;
+        QString artistAt(int row) const;
+        bool hasCoverAt(int row) const;
         int rowForPath(const QString& path) const;
 
         // Returns false (and changes nothing) for an empty or already-listed path.
