@@ -7,6 +7,7 @@
 namespace Kalorite {
 
     class PlaylistModel;
+    class MusicBrainzService;
 
     // Playlist logic on top of PlaylistModel: adding, queueing, durations and file I/O.
     class Playlist : public QObject {
@@ -16,6 +17,7 @@ namespace Kalorite {
         explicit Playlist(QObject* parent = nullptr);
 
         PlaylistModel* model() const { return m_model; }
+        MusicBrainzService* musicBrainz() const { return m_musicBrainz; }
         int count() const;
         int currentRow() const;
         void setCurrentRow(int row);
@@ -53,6 +55,7 @@ namespace Kalorite {
         void closeQueueGap(int slot);
 
         PlaylistModel* m_model;
+        MusicBrainzService* m_musicBrainz;
     };
 
 } // namespace Kalorite

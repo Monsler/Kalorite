@@ -1,6 +1,7 @@
 #include "Playlist.hpp"
 #include "PlaylistModel.hpp"
 #include "TrackMetadataReader.hpp"
+#include "MusicBrainzService.hpp"
 #include "miniaudio.h"
 #include <QFileInfo>
 #include <algorithm>
@@ -10,8 +11,11 @@
 namespace Kalorite {
 
 Playlist::Playlist(QObject* parent)
-    : QObject(parent), m_model(new PlaylistModel(this)) {
+    : QObject(parent),
+      m_model(new PlaylistModel(this)),
+      m_musicBrainz(new MusicBrainzService(this)) {
     connect(m_model, &QAbstractItemModel::rowsMoved, this, &Playlist::onRowsMoved);
+    connect(m_musicBrainz, &MusicBrainzService::metadataFetched, m_model, &PlaylistModel::updateMetadataById);
 }
 
 int Playlist::count() const { return m_model->count(); }
@@ -60,8 +64,15 @@ bool Playlist::addTrack(const QString& path, const QString& displayName, qint64 
 
     QString durStr = formatDuration(durationMs);
 
-    m_model->append(path, name, title, artist, durStr, meta.cover, meta.hasCover);
+    quint64 trackId = m_model->append(path, name, title, artist, durStr, meta.cover, meta.hasCover);
     emit contentsChanged();
+
+    bool needCover = !meta.hasCover;
+    bool needTags = artist.isEmpty() || title.isEmpty() || title == QFileInfo(path).completeBaseName();
+    if (needCover || needTags) {
+        m_musicBrainz->enqueue(trackId, title, artist, path, needCover, needTags);
+    }
+
     return true;
 }
 

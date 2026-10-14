@@ -88,9 +88,8 @@ TrackMetadata TrackMetadataReader::read(const QString& filePath) {
     } else if (ext == QStringLiteral("m4a") || ext == QStringLiteral("mp4") || ext == QStringLiteral("aac")) {
         TagLib::MP4::File mp4File(pathStr);
         if (mp4File.isValid() && mp4File.tag()) {
-            auto itemListMap = mp4File.tag()->itemListMap();
-            if (itemListMap.contains("covr")) {
-                auto coverList = itemListMap["covr"].toCoverArtList();
+            if (mp4File.tag()->contains("covr")) {
+                auto coverList = mp4File.tag()->item("covr").toCoverArtList();
                 if (!coverList.isEmpty() && coverList.front().data().size() > 0) {
                     if (meta.cover.loadFromData(reinterpret_cast<const uchar*>(coverList.front().data().data()),
                                                 static_cast<int>(coverList.front().data().size()))) {

@@ -50,13 +50,18 @@ namespace Kalorite {
         void setQueue(int row, int queue);
         void setDuration(int row, const QString& duration);
 
-        void append(const QString& path,
-                    const QString& name,
-                    const QString& title,
-                    const QString& artist,
-                    const QString& duration = QStringLiteral("--:--"),
-                    const QImage& cover = QImage(),
-                    bool hasCover = false);
+        quint64 append(const QString& path,
+                       const QString& name,
+                       const QString& title,
+                       const QString& artist,
+                       const QString& duration = QStringLiteral("--:--"),
+                       const QImage& cover = QImage(),
+                       bool hasCover = false);
+        void updateMetadataById(quint64 trackId,
+                                const QString& title,
+                                const QString& artist,
+                                const QImage& cover,
+                                bool hasCover);
         void removeAt(int row);
         void clear();
 
@@ -77,6 +82,7 @@ namespace Kalorite {
             int queue = 0;
             QImage cover;
             bool hasCover = false;
+            int coverVersion = 1;
         };
 
         bool matchesFilter(const Track& track) const;

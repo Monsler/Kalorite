@@ -1,4 +1,5 @@
 #include "PlaylistModel.hpp"
+#include <QDebug>
 
 namespace Kalorite {
 
@@ -24,7 +25,7 @@ QVariant PlaylistModel::data(const QModelIndex& index, int role) const {
     case TitleRole:         return track.title.isEmpty() ? track.name : track.title;
     case ArtistRole:        return track.artist;
     case HasCoverRole:      return track.hasCover;
-    case CoverUrlRole:      return track.hasCover ? QStringLiteral("image://cover/") + QString::number(track.id) : QString();
+    case CoverUrlRole:      return track.hasCover ? (QStringLiteral("image://cover/") + QString::number(track.id) + QStringLiteral("?v=") + QString::number(track.coverVersion)) : QString();
     }
     return {};
 }
@@ -135,15 +136,16 @@ void PlaylistModel::setDuration(int row, const QString& duration) {
     }
 }
 
-void PlaylistModel::append(const QString& path,
-                           const QString& name,
-                           const QString& title,
-                           const QString& artist,
-                           const QString& duration,
-                           const QImage& cover,
-                           bool hasCover) {
+quint64 PlaylistModel::append(const QString& path,
+                              const QString& name,
+                              const QString& title,
+                              const QString& artist,
+                              const QString& duration,
+                              const QImage& cover,
+                              bool hasCover) {
     const int origIdx = count();
-    Track track{ m_nextTrackId++, path, name, title, artist, duration, 0, cover, hasCover };
+    const quint64 trackId = m_nextTrackId++;
+    Track track{ trackId, path, name, title, artist, duration, 0, cover, hasCover, 1 };
     m_tracks.append(track);
 
     if (matchesFilter(track)) {
@@ -151,6 +153,51 @@ void PlaylistModel::append(const QString& path,
         beginInsertRows(QModelIndex(), vRow, vRow);
         m_visibleRows.append(origIdx);
         endInsertRows();
+    }
+    return trackId;
+}
+
+void PlaylistModel::updateMetadataById(quint64 trackId,
+                                      const QString& title,
+                                      const QString& artist,
+                                      const QImage& cover,
+                                      bool hasCover) {
+    for (int i = 0; i < m_tracks.size(); ++i) {
+        if (m_tracks[i].id == trackId) {
+            bool changed = false;
+            if (!title.isEmpty() && m_tracks[i].title != title) {
+                m_tracks[i].title = title;
+                changed = true;
+            }
+            if (!artist.isEmpty() && m_tracks[i].artist != artist) {
+                m_tracks[i].artist = artist;
+                changed = true;
+            }
+            if (changed) {
+                m_tracks[i].name = !m_tracks[i].artist.isEmpty()
+                    ? (m_tracks[i].artist + QStringLiteral(" - ") + m_tracks[i].title)
+                    : m_tracks[i].title;
+            }
+            if (hasCover && !cover.isNull()) {
+                m_tracks[i].cover = cover;
+                m_tracks[i].hasCover = true;
+                m_tracks[i].coverVersion++;
+                changed = true;
+            }
+            if (changed) {
+                int vRow = m_visibleRows.indexOf(i);
+                qDebug() << "[PlaylistModel] Updated track metadata: row=" << vRow
+                         << "title=" << m_tracks[i].title
+                         << "artist=" << m_tracks[i].artist
+                         << "hasCover=" << m_tracks[i].hasCover
+                         << "coverVersion=" << m_tracks[i].coverVersion;
+                if (vRow >= 0) {
+                    emit dataChanged(index(vRow), index(vRow),
+                                     { TitleRole, ArtistRole, NameRole, HasCoverRole, CoverUrlRole });
+                }
+            }
+            break;
+        }
     }
 }
 
