@@ -494,22 +494,27 @@
         <translation type="vanished">Обычный текст</translation>
     </message>
     <message>
-        <location filename="../qml/LyricsPanel.qml" line="222" />
+        <location filename="../qml/LyricsPanel.qml" line="240" />
         <source>Open .lrc file</source>
         <translation>Открыть файл .lrc</translation>
     </message>
     <message>
-        <location filename="../qml/LyricsPanel.qml" line="235" />
+        <location filename="../qml/LyricsPanel.qml" line="266" />
         <source>Reload lyrics</source>
         <translation>Обновить текст</translation>
     </message>
     <message>
-        <location filename="../qml/LyricsPanel.qml" line="64" />
+        <location filename="../qml/LyricsPanel.qml" line="308" />
+        <source>Sync with playback</source>
+        <translation>Синхронизировать с воспроизведением</translation>
+    </message>
+    <message>
+        <location filename="../qml/LyricsPanel.qml" line="73" />
         <source>Looking for lyrics...</source>
         <translation>Поиск текста песни...</translation>
     </message>
     <message>
-        <location filename="../qml/LyricsPanel.qml" line="79" />
+        <location filename="../qml/LyricsPanel.qml" line="88" />
         <source>No lyrics available</source>
         <translation>Текст песни недоступен</translation>
     </message>
@@ -518,12 +523,12 @@
         <translation type="vanished">Поместите файл .lrc с тем же именем рядом с треком или найдите через LRCLIB.</translation>
     </message>
     <message>
-        <location filename="../qml/LyricsPanel.qml" line="93" />
+        <location filename="../qml/LyricsPanel.qml" line="102" />
         <source>Open .lrc</source>
         <translation>Открыть .lrc</translation>
     </message>
     <message>
-        <location filename="../qml/LyricsPanel.qml" line="101" />
+        <location filename="../qml/LyricsPanel.qml" line="110" />
         <source>Retry</source>
         <translation>Повторить</translation>
     </message>

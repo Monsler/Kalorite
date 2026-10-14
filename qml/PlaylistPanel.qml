@@ -22,12 +22,24 @@ Pane {
         ScrollBar.vertical: ScrollBar {}
 
         Keys.onPressed: function (event) {
-            if (event.key === Qt.Key_Q) {
-                if (list.currentItem) {
+            const isQueueKey = (event.key === Qt.Key_R || event.key === Qt.Key_Q ||
+                                event.text === "r" || event.text === "R" ||
+                                event.text === "к" || event.text === "К")
+            if (isQueueKey) {
+                if (list.currentItem && list.currentItem.originalIndex !== undefined) {
                     pl.toggleQueue(list.currentItem.originalIndex)
+                } else if (list.currentIndex >= 0) {
+                    const orig = playlistModel.originalIndex(list.currentIndex)
+                    if (orig >= 0) {
+                        pl.toggleQueue(orig)
+                    } else if (playlistModel.currentRow >= 0) {
+                        pl.toggleQueue(playlistModel.currentRow)
+                    }
                 } else if (playlistModel.currentRow >= 0) {
                     pl.toggleQueue(playlistModel.currentRow)
                 }
+                event.accepted = true
+                return
             } else if (event.key === Qt.Key_Up) {
                 if (list.currentIndex > 0) {
                     list.currentIndex--
@@ -194,6 +206,12 @@ Pane {
     Menu {
         id: rowMenu
         property int targetRow: -1
+
+        MenuItem {
+            text: qsTranslate("Kalorite::MainWindow", "Queue track") + " (R)"
+            icon.name: "media-playlist-queue"
+            onTriggered: pl.toggleQueue(rowMenu.targetRow)
+        }
 
         MenuItem {
             icon.name: "document-close"

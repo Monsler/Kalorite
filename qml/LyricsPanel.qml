@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Controls.impl
 
 Item {
     id: lyricsPanel
@@ -7,7 +8,7 @@ Item {
     implicitWidth: 0
     implicitHeight: 160
 
-    property bool autoScrollEnabled: true
+    property bool isSynced: true
 
     Rectangle {
         id: bgRect
@@ -30,8 +31,8 @@ Item {
         easing.type: Easing.OutCubic
     }
 
-    function smoothScrollTo(idx) {
-        if (!autoScrollEnabled || idx < 0 || list.moving) return
+    function smoothScrollTo(idx, force) {
+        if ((!isSynced && !force) || idx < 0 || list.moving || list.flicking) return
         list.currentIndex = idx
 
         let item = list.itemAtIndex(idx)
@@ -48,6 +49,14 @@ Item {
             scrollAnim.start()
         } else {
             list.positionViewAtIndex(idx, ListView.Center)
+        }
+    }
+
+    function syncToCurrentLine() {
+        lyricsPanel.isSynced = true
+        if (lyrics) {
+            let target = Math.max(0, lyrics.activeIndex)
+            smoothScrollTo(target, true)
         }
     }
 
@@ -119,32 +128,25 @@ Item {
             cacheBuffer: 3000
             boundsBehavior: Flickable.StopAtBounds
 
-            onMovingChanged: {
-                if (moving) {
-                    scrollAnim.stop()
-                    lyricsPanel.autoScrollEnabled = false
-                    resumeScrollTimer.restart()
-                }
+            onMovementStarted: {
+                scrollAnim.stop()
+                lyricsPanel.isSynced = false
             }
 
-            Timer {
-                id: resumeScrollTimer
-                interval: 3500
-                repeat: false
-                onTriggered: {
-                    lyricsPanel.autoScrollEnabled = true
-                    if (lyrics && lyrics.activeIndex >= 0) {
-                        lyricsPanel.smoothScrollTo(lyrics.activeIndex)
-                    }
-                }
+            onFlickStarted: {
+                scrollAnim.stop()
+                lyricsPanel.isSynced = false
             }
 
             Connections {
-                target: lyrics
+                target: typeof lyrics !== "undefined" ? lyrics : null
                 function onActiveIndexChanged(idx) {
-                    if (idx >= 0 && lyricsPanel.autoScrollEnabled && !list.moving) {
-                        lyricsPanel.smoothScrollTo(idx)
+                    if (idx >= 0 && lyricsPanel.isSynced && !list.moving && !list.flicking) {
+                        lyricsPanel.smoothScrollTo(idx, false)
                     }
+                }
+                function onHasLyricsChanged() {
+                    lyricsPanel.isSynced = true
                 }
             }
 
@@ -196,59 +198,147 @@ Item {
                     onClicked: {
                         if (lyrics) {
                             lyrics.seekToLine(lineRow.index)
-                            lyricsPanel.autoScrollEnabled = true
-                            lyricsPanel.smoothScrollTo(lineRow.index)
+                            lyricsPanel.isSynced = true
+                            lyricsPanel.smoothScrollTo(lineRow.index, true)
                         }
                     }
                 }
             }
         }
 
-        // Floating action buttons (XDG icons, visible on hover in top right)
+        // Entire panel hover sensor for top-right actions
+        MouseArea {
+            id: panelHoverArea
+            anchors.fill: parent
+            hoverEnabled: true
+            acceptedButtons: Qt.NoButton
+            z: 1
+        }
+
+        // Floating action buttons (visible on panel hover in top right)
         Row {
+            id: topActionsRow
             anchors.top: parent.top
             anchors.right: parent.right
-            anchors.margins: 4
+            anchors.margins: 6
             spacing: 4
-            opacity: controlsMouse.containsMouse ? 0.90 : 0.0
+            z: 20
 
-            Behavior on opacity { NumberAnimation { duration: 150 } }
+            property bool showActions: panelHoverArea.containsMouse || openBtn.hovered || reloadBtn.hovered
+            opacity: (showActions && lyrics && !lyrics.isLoading) ? 0.95 : 0.0
+            visible: opacity > 0.01
+
+            Behavior on opacity { NumberAnimation { duration: 180 } }
 
             ToolButton {
+                id: openBtn
                 implicitWidth: 26
                 implicitHeight: 26
-                icon.name: "document-open"
+                padding: 0
                 ToolTip.visible: hovered
                 ToolTip.text: qsTranslate("Kalorite::MainWindow", "Open .lrc file")
                 onClicked: if (lyrics) lyrics.openLrcFile()
+
+                HoverHandler { cursorShape: Qt.PointingHandCursor }
+
                 background: Rectangle {
                     radius: 4
-                    color: parent.hovered ? Qt.rgba(1, 1, 1, 0.25) : Qt.rgba(0, 0, 0, 0.25)
+                    color: openBtn.pressed ? Qt.rgba(1, 1, 1, 0.35) : (openBtn.hovered ? Qt.rgba(1, 1, 1, 0.25) : Qt.rgba(0, 0, 0, 0.35))
+                    border.color: Qt.rgba(1, 1, 1, 0.15)
+                    border.width: 1
+                }
+
+                contentItem: IconImage {
+                    anchors.centerIn: parent
+                    width: 14
+                    height: 14
+                    name: "document-open"
+                    color: "#ffffff"
                 }
             }
 
             ToolButton {
+                id: reloadBtn
                 implicitWidth: 26
                 implicitHeight: 26
-                icon.name: "view-refresh"
+                padding: 0
                 ToolTip.visible: hovered
                 ToolTip.text: qsTranslate("Kalorite::MainWindow", "Reload lyrics")
                 onClicked: if (lyrics) lyrics.reload()
+
+                HoverHandler { cursorShape: Qt.PointingHandCursor }
+
                 background: Rectangle {
                     radius: 4
-                    color: parent.hovered ? Qt.rgba(1, 1, 1, 0.25) : Qt.rgba(0, 0, 0, 0.25)
+                    color: reloadBtn.pressed ? Qt.rgba(1, 1, 1, 0.35) : (reloadBtn.hovered ? Qt.rgba(1, 1, 1, 0.25) : Qt.rgba(0, 0, 0, 0.35))
+                    border.color: Qt.rgba(1, 1, 1, 0.15)
+                    border.width: 1
+                }
+
+                contentItem: IconImage {
+                    anchors.centerIn: parent
+                    width: 14
+                    height: 14
+                    name: "view-refresh"
+                    color: "#ffffff"
                 }
             }
         }
 
-        MouseArea {
-            id: controlsMouse
-            anchors.top: parent.top
-            anchors.right: parent.right
-            width: 70
-            height: 36
-            hoverEnabled: true
-            acceptedButtons: Qt.NoButton
+        // Floating sync button (bottom left, neat white circular button)
+        ToolButton {
+            id: syncBtn
+            anchors.left: parent.left
+            anchors.bottom: parent.bottom
+            anchors.margins: 8
+            implicitWidth: 30
+            implicitHeight: 30
+            z: 20
+            padding: 0
+
+            HoverHandler { cursorShape: Qt.PointingHandCursor }
+
+            property bool shouldShow: !lyricsPanel.isSynced && lyrics && lyrics.hasLyrics && lyrics.isSynced
+
+            visible: opacity > 0.01
+            opacity: shouldShow ? 1.0 : 0.0
+            scale: shouldShow ? 1.0 : 0.7
+
+            Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+            Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack } }
+
+            ToolTip.visible: hovered
+            ToolTip.text: qsTranslate("Kalorite::MainWindow", "Sync with playback")
+
+            background: Item {
+                anchors.fill: parent
+
+                // Soft shadow
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.topMargin: 1
+                    radius: width / 2
+                    color: Qt.rgba(0, 0, 0, 0.25)
+                }
+
+                // White circle (no border)
+                Rectangle {
+                    anchors.fill: parent
+                    radius: width / 2
+                    color: syncBtn.pressed ? "#dedede" : (syncBtn.hovered ? "#f5f5f5" : "#ffffff")
+                }
+            }
+
+            contentItem: IconImage {
+                anchors.centerIn: parent
+                width: Math.round(syncBtn.width / 2)
+                height: Math.round(syncBtn.height / 2)
+                sourceSize: Qt.size(width, height)
+                name: "view-refresh"
+                color: "#18181c"
+            }
+
+            onClicked: lyricsPanel.syncToCurrentLine()
         }
     }
 }

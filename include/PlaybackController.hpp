@@ -69,6 +69,7 @@ namespace Kalorite {
     private:
         int takeNextQueuedTrack();
         void genShuffle();
+        int getNextShuffleTrack();
 
         Mixer* m_mixer;
         Playlist* m_playlist;

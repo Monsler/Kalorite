@@ -251,4 +251,9 @@ void PlaylistModel::moveTrack(int from, int to) {
     if (m_currentRow != previousRow) emit currentRowChanged();
 }
 
+int PlaylistModel::originalIndex(int visibleRow) const {
+    if (visibleRow < 0 || visibleRow >= m_visibleRows.size()) return -1;
+    return m_visibleRows.at(visibleRow);
+}
+
 } // namespace Kalorite

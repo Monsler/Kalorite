@@ -89,40 +89,64 @@ void PlaybackController::selectTrack(int id) {
 }
 
 void PlaybackController::skipNext() {
-    // In Repeat-List mode a queued track jumps the line on manual skip too.
+    if (m_playlist->count() == 0) return;
+
+    int queued = takeNextQueuedTrack();
+    if (queued >= 0) {
+        selectTrack(queued);
+        return;
+    }
+
+    if (m_loopType == 3) {
+        int next = getNextShuffleTrack();
+        if (next >= 0) selectTrack(next);
+        return;
+    }
+
     if (m_loopType == 2) {
-        int queued = takeNextQueuedTrack();
-        if (queued >= 0) {
-            selectTrack(queued);
-            return;
-        }
         int next = m_playlist->currentRow() + 1;
         if (next >= m_playlist->count()) next = 0;
         selectTrack(next);
         return;
     }
-    selectTrack(m_playlist->currentRow() + 1);
+
+    int next = m_playlist->currentRow() + 1;
+    if (next < m_playlist->count()) {
+        selectTrack(next);
+    }
 }
 
 void PlaybackController::skipPrevious() {
+    if (m_playlist->count() == 0) return;
+
+    if (m_loopType == 3) {
+        if (m_shufflePos > 1 && !m_shuffle.empty()) {
+            m_shufflePos -= 2;
+            selectTrack(m_shuffle[m_shufflePos++]);
+            return;
+        } else if (!m_shuffle.empty()) {
+            selectTrack(m_shuffle[0]);
+            return;
+        }
+    }
+
     if (m_loopType == 2) {
         int prev = m_playlist->currentRow() - 1;
         if (prev < 0) prev = m_playlist->count() - 1;
         selectTrack(prev);
         return;
     }
-    selectTrack(m_playlist->currentRow() - 1);
+
+    int prev = m_playlist->currentRow() - 1;
+    if (prev >= 0) {
+        selectTrack(prev);
+    }
 }
 
 void PlaybackController::cycleLoopType() {
     m_loopType++;
     if (m_loopType > 3) {
         m_loopType = 0;
-    }
-
-    // The priority queue only lives in Repeat-List mode.
-    if (m_loopType != 2) {
-        m_playlist->clearAllQueues();
     }
 
     if (m_loopType == 3) {
@@ -132,7 +156,6 @@ void PlaybackController::cycleLoopType() {
 }
 
 void PlaybackController::toggleQueue(int row) {
-    if (m_loopType != 2) return;
     m_playlist->toggleQueue(row);
 }
 
@@ -182,6 +205,13 @@ void PlaybackController::onTimer() {
         return;
     }
 
+    // Priority queue overrides the regular order in all loop modes
+    int queued = takeNextQueuedTrack();
+    if (queued >= 0) {
+        selectTrack(queued);
+        return;
+    }
+
     if (m_loopType == 0) {
         pause();
         m_mixer->setPosition(0);
@@ -189,24 +219,13 @@ void PlaybackController::onTimer() {
         m_mixer->setPosition(0);
         play();
     } else if (m_loopType == 2) {
-        int queued = takeNextQueuedTrack();
-        int newTrack = (queued >= 0)
-            ? queued
-            : (m_currentId + 1 < m_playlist->count() ? m_currentId + 1 : 0);
-        m_currentId = newTrack;
-        m_playlist->setCurrentRow(m_currentId);
-        loadTrack(m_playlist->pathAt(m_currentId).toStdString());
-        play();
+        int next = (m_currentId + 1 < m_playlist->count()) ? m_currentId + 1 : 0;
+        selectTrack(next);
     } else if (m_loopType == 3) {
-        if (m_shufflePos == (int)m_shuffle.size() - 1) {
-            qDebug() << "Reached shuffle end; Generating a new one";
-            genShuffle();
+        int next = getNextShuffleTrack();
+        if (next >= 0) {
+            selectTrack(next);
         }
-        m_currentId = m_shuffle[m_shufflePos];
-        m_playlist->setCurrentRow(m_currentId);
-        loadTrack(m_playlist->pathAt(m_currentId).toStdString());
-        play();
-        m_shufflePos++;
     }
 }
 
@@ -215,27 +234,23 @@ void PlaybackController::onCrossfadeAdvance() {
     if (!m_isPlaying || m_playlist->count() == 0) return;
 
     int nextId = -1;
-    switch (m_loopType) {
-        case 0:
-            break;
-        case 1:
-            nextId = m_currentId;
-            break;
-        case 2: {
-            int queued = takeNextQueuedTrack();
-            nextId = (queued >= 0)
-                ? queued
-                : ((m_currentId + 1 < m_playlist->count()) ? m_currentId + 1 : 0);
-            break;
+    int queued = takeNextQueuedTrack();
+    if (queued >= 0) {
+        nextId = queued;
+    } else {
+        switch (m_loopType) {
+            case 0:
+                break;
+            case 1:
+                nextId = m_currentId;
+                break;
+            case 2:
+                nextId = ((m_currentId + 1 < m_playlist->count()) ? m_currentId + 1 : 0);
+                break;
+            case 3:
+                nextId = getNextShuffleTrack();
+                break;
         }
-        case 3:
-            if (m_shufflePos >= (int)m_shuffle.size() - 1) {
-                qDebug() << "Reached shuffle end; Generating a new one";
-                genShuffle();
-            }
-            nextId = m_shuffle[m_shufflePos];
-            m_shufflePos++;
-            break;
     }
 
     if (nextId < 0) return;
@@ -265,12 +280,9 @@ void PlaybackController::onRowsReordered() {
     }
 }
 
-// Pops the next queued track, discarding any entry that points at the track
-// that is already current, so it never replays from the start.
+// Pops the next queued track.
 int PlaybackController::takeNextQueuedTrack() {
-    int head = m_playlist->takeQueueHead();
-    while (head == m_currentId) head = m_playlist->takeQueueHead();
-    return head;
+    return m_playlist->takeQueueHead();
 }
 
 void PlaybackController::genShuffle() {
@@ -282,9 +294,49 @@ void PlaybackController::genShuffle() {
         m_shuffle[i] = i;
     }
 
+    if (size <= 1) return;
+
     std::random_device rd;
     std::mt19937_64 g(rd());
     std::shuffle(m_shuffle.begin(), m_shuffle.end(), g);
+
+    int currentPlayingRow = m_playlist->rowForPath(QString::fromStdString(m_currentAudio));
+    if (currentPlayingRow < 0) {
+        currentPlayingRow = m_currentId;
+    }
+
+    if (currentPlayingRow >= 0 && currentPlayingRow < size && m_shuffle[0] == currentPlayingRow) {
+        std::uniform_int_distribution<size_t> dist(1, size - 1);
+        size_t other = dist(g);
+        std::swap(m_shuffle[0], m_shuffle[other]);
+    }
+}
+
+int PlaybackController::getNextShuffleTrack() {
+    int size = m_playlist->count();
+    if (size == 0) return -1;
+    if (size == 1) return 0;
+
+    if (m_shuffle.empty() || m_shufflePos >= (int)m_shuffle.size()) {
+        genShuffle();
+    }
+
+    int currentPlayingRow = m_playlist->rowForPath(QString::fromStdString(m_currentAudio));
+    if (currentPlayingRow < 0) {
+        currentPlayingRow = m_currentId;
+    }
+
+    if (currentPlayingRow >= 0 && currentPlayingRow < size && m_shufflePos < (int)m_shuffle.size() && m_shuffle[m_shufflePos] == currentPlayingRow) {
+        if (m_shufflePos + 1 < (int)m_shuffle.size()) {
+            std::swap(m_shuffle[m_shufflePos], m_shuffle[m_shufflePos + 1]);
+        } else {
+            genShuffle();
+        }
+    }
+
+    int next = m_shuffle[m_shufflePos];
+    m_shufflePos++;
+    return next;
 }
 
 } // namespace Kalorite

@@ -37,6 +37,16 @@ Item {
         }
     }
 
+    Shortcut {
+        sequences: ["R", "Q", "К", "к", "Й", "й"]
+        enabled: !searchField.activeFocus
+        onActivated: {
+            if (playlistModel && playlistModel.currentRow >= 0) {
+                pl.toggleQueue(playlistModel.currentRow)
+            }
+        }
+    }
+
     Component {
         id: menuComponent
         Menu {

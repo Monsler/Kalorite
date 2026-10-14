@@ -67,6 +67,7 @@ namespace Kalorite {
         void clear();
 
         Q_INVOKABLE void moveTrack(int from, int to);
+        Q_INVOKABLE int originalIndex(int visibleRow) const;
 
     signals:
         void currentRowChanged();
