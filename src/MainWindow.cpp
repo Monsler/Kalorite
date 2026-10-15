@@ -54,7 +54,9 @@ MainWindow::MainWindow() {
     eqBackend = new EqualizerBackend(mixer, this);
     lyricsBackend = new LyricsBackend(playback, mixer, playlist, this);
 
-    connect(playlistBackend, &PlaylistBackend::trackActivated, playback, &PlaybackController::selectTrack);
+    connect(playlistBackend, &PlaylistBackend::trackActivated, playback, [this](int row) {
+        playback->selectTrack(row, true);
+    });
     connect(playlistBackend, &PlaylistBackend::queueToggleRequested, playback, &PlaybackController::toggleQueue);
     connect(playlistBackend, &PlaylistBackend::trackRemoved, this, &MainWindow::onTrackRemoved);
 
@@ -551,9 +553,9 @@ void MainWindow::onLoadPlaylist() {
     if (openPath.isEmpty()) return;
 
     playlist->clear();
-    const QStringList paths = Playlist::readPathsFromFile(openPath);
-    for (const QString& path : paths) {
-        playback->addTrack(path);
+    const auto entries = Playlist::readEntriesFromFile(openPath);
+    for (const auto& entry : entries) {
+        playback->addTrack(entry.path, QString(), -1, entry.progress, entry.positionMs);
     }
     if (playlist->count() > 0) {
         playlist->setCurrentRow(0);
@@ -651,10 +653,14 @@ void MainWindow::updateProgress() {
     int posMs = mixer->getPositionMs();
     int totalSeconds = posMs / 1000;
 
-    if (durationMs > 0 && playlist) {
-        int row = playlist->currentRow();
-        if (row >= 0 && playlist->model()->durationAt(row) == QStringLiteral("--:--")) {
-            playlist->setRowDuration(row, durationMs);
+    if (durationMs > 0 && playlist && playback) {
+        int playingRow = playlist->rowForPath(QString::fromStdString(playback->currentAudio()));
+        if (playingRow >= 0) {
+            double prog = qBound(0.0, static_cast<double>(posMs) / durationMs, 1.0);
+            playlist->setRowProgress(playingRow, prog, posMs);
+            if (playlist->model()->durationAt(playingRow) == QStringLiteral("--:--")) {
+                playlist->setRowDuration(playingRow, durationMs);
+            }
         }
     }
 

@@ -49,7 +49,7 @@ void PlaybackController::seekMs(int ms) {
     m_mixer->setPosition(ms);
 }
 
-void PlaybackController::selectTrack(int id) {
+void PlaybackController::selectTrack(int id, bool restoreSavedPosition) {
     if (id < 0 || id >= m_playlist->count()) return;
 
     std::string requested = m_playlist->pathAt(id).toStdString();
@@ -60,6 +60,18 @@ void PlaybackController::selectTrack(int id) {
     // Starting a queued track directly consumes its queue entry.
     m_playlist->clearQueueEntry(id);
 
+    qint64 seekToMs = 0;
+    if (restoreSavedPosition && (!sameTrack || !m_isPlaying)) {
+        if (m_playlist->progressAt(id) > 0.0 && m_playlist->progressAt(id) < 0.99) {
+            seekToMs = m_playlist->positionMsAt(id);
+        }
+    }
+
+    if (seekToMs <= 0 && (!restoreSavedPosition || m_playlist->progressAt(id) >= 0.99)) {
+        // Natural start in queue / restart finished track -> reset progress
+        m_playlist->setRowProgress(id, 0.0, 0);
+    }
+
     if (m_crossfadeEnabled || m_mixer->isGaplessEnabled()) {
         // Seamless transition: do not stop/start the mixer, so the miniaudio sound
         // slots are not torn down under the outgoing track.
@@ -67,6 +79,7 @@ void PlaybackController::selectTrack(int id) {
             // Re-selecting the playing track restarts it in place; loading it again
             // would overlap a second copy of the same track.
             m_mixer->setPosition(0);
+            m_playlist->setRowProgress(id, 0.0, 0);
             m_isPlaying = true;
             emit playStateChanged(true);
             m_timer->start(50);
@@ -74,16 +87,25 @@ void PlaybackController::selectTrack(int id) {
             // setCurrent overlaps the incoming sound with the outgoing one; Bit Perfect
             // loads paused, so play() is needed there (a no-op for the engine path).
             loadTrack(requested);
+            if (seekToMs > 0) {
+                m_mixer->setPosition(seekToMs);
+            }
             m_mixer->play();
             emit playStateChanged(true);
             m_timer->start(50);
         } else {
             loadTrack(requested);
+            if (seekToMs > 0) {
+                m_mixer->setPosition(seekToMs);
+            }
             play();
         }
     } else {
         pause();
         loadTrack(requested);
+        if (seekToMs > 0) {
+            m_mixer->setPosition(seekToMs);
+        }
         play();
     }
 }
@@ -159,8 +181,8 @@ void PlaybackController::toggleQueue(int row) {
     m_playlist->toggleQueue(row);
 }
 
-void PlaybackController::addTrack(const QString& path, const QString& displayName, qint64 durationMs) {
-    if (!m_playlist->addTrack(path, displayName, durationMs)) return;
+void PlaybackController::addTrack(const QString& path, const QString& displayName, qint64 durationMs, double progress, qint64 positionMs) {
+    if (!m_playlist->addTrack(path, displayName, durationMs, progress, positionMs)) return;
 
     if (m_currentAudio.empty()) {
         loadTrack(path.toStdString());
@@ -196,6 +218,11 @@ void PlaybackController::onTimer() {
     bool finished = m_isPlaying && !m_mixer->isPlaying() && m_mixer->getDurationMs() > 100
         && m_mixer->getPositionMs() >= (m_mixer->getDurationMs() - 100);
     if (!finished) return;
+
+    int finishedRow = m_playlist->rowForPath(QString::fromStdString(m_currentAudio));
+    if (finishedRow >= 0) {
+        m_playlist->setRowProgress(finishedRow, 1.0, m_mixer->getDurationMs());
+    }
 
     emit trackFinished(QString::fromStdString(m_currentAudio));
 
@@ -255,6 +282,7 @@ void PlaybackController::onCrossfadeAdvance() {
 
     if (nextId < 0) return;
 
+    m_playlist->setRowProgress(nextId, 0.0, 0);
     m_currentId = nextId;
     m_playlist->setCurrentRow(nextId);
     loadTrack(m_playlist->pathAt(nextId).toStdString());

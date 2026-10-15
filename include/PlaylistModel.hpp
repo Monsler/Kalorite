@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QAbstractListModel>
+#include <QColor>
 #include <QImage>
 #include <QList>
 #include <QString>
@@ -24,7 +25,13 @@ namespace Kalorite {
             ArtistRole,
             HasCoverRole,
             CoverUrlRole,
+            ProgressRole,
+            PositionMsRole,
+            AccentColorRole,
         };
+
+        static QColor extractDominantColor(const QImage& img);
+        static QColor extractProgressAccentColor(const QImage& img);
 
         explicit PlaylistModel(QObject* parent = nullptr);
 
@@ -50,6 +57,9 @@ namespace Kalorite {
         int queueAt(int row) const;
         void setQueue(int row, int queue);
         void setDuration(int row, const QString& duration);
+        double progressAt(int row) const;
+        qint64 positionMsAt(int row) const;
+        void setProgress(int row, double progress, qint64 positionMs = 0);
 
         quint64 append(const QString& path,
                        const QString& name,
@@ -57,7 +67,9 @@ namespace Kalorite {
                        const QString& artist,
                        const QString& duration = QStringLiteral("--:--"),
                        const QImage& cover = QImage(),
-                       bool hasCover = false);
+                       bool hasCover = false,
+                       double progress = 0.0,
+                       qint64 positionMs = 0);
         void updateMetadataById(quint64 trackId,
                                 const QString& title,
                                 const QString& artist,
@@ -85,6 +97,9 @@ namespace Kalorite {
             QImage cover;
             bool hasCover = false;
             int coverVersion = 1;
+            double progress = 0.0;
+            qint64 positionMs = 0;
+            QColor accentColor = QColor(26, 26, 30);
         };
 
         bool matchesFilter(const Track& track) const;

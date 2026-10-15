@@ -78,6 +78,8 @@ Pane {
             required property int queue
             required property bool hasCover
             required property string coverUrl
+            required property double progress
+            required property color accentColor
 
             width: list.width
             highlighted: row.originalIndex === playlistModel.currentRow
@@ -103,8 +105,6 @@ Pane {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     color: row.highlighted ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(0, 0, 0, 0.15)
-                    border.width: 1
-                    border.color: row.highlighted ? Qt.rgba(1, 1, 1, 0.25) : Qt.rgba(0, 0, 0, 0.08)
 
                     Image {
                         id: coverImg
@@ -124,6 +124,40 @@ Pane {
                         font.bold: true
                         color: row.highlighted ? row.palette.highlightedText : row.palette.text
                         opacity: 0.4
+                    }
+
+                    // Playback progress strip at the bottom of the cover (clipped to cover's exact rounded shape)
+                    Canvas {
+                        id: progressCanvas
+                        anchors.fill: parent
+                        visible: row.progress > 0
+
+                        property real progressVal: row.progress
+                        property color colorVal: row.accentColor
+
+                        onProgressValChanged: requestPaint()
+                        onColorValChanged: requestPaint()
+
+                        onPaint: {
+                            var ctx = getContext("2d");
+                            ctx.reset();
+                            ctx.beginPath();
+                            ctx.roundedRect(0, 0, width, height, 6, 6);
+                            ctx.clip();
+
+                            ctx.fillStyle = colorVal;
+                            var w = Math.round(width * Math.max(0, Math.min(1, progressVal)));
+                            ctx.fillRect(0, height - 4, w, 4);
+                        }
+                    }
+
+                    // Border overlay on top of cover and progress strip
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 6
+                        color: "transparent"
+                        border.width: 1
+                        border.color: row.highlighted ? Qt.rgba(1, 1, 1, 0.25) : Qt.rgba(0, 0, 0, 0.08)
                     }
                 }
 

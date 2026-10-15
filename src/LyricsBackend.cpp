@@ -174,40 +174,7 @@ static void cleanSearchTerms(const QString& filePath, const QString& inTitle, co
 }
 
 static QColor extractDominantColor(const QImage& img) {
-    if (img.isNull()) {
-        return QColor(26, 26, 30);
-    }
-    QImage tiny = img.scaled(24, 24, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).convertToFormat(QImage::Format_ARGB32);
-    qint64 totalR = 0, totalG = 0, totalB = 0;
-    int count = 0;
-    for (int y = 0; y < tiny.height(); ++y) {
-        const QRgb* line = reinterpret_cast<const QRgb*>(tiny.constScanLine(y));
-        for (int x = 0; x < tiny.width(); ++x) {
-            QRgb p = line[x];
-            if (qAlpha(p) > 50) {
-                totalR += qRed(p);
-                totalG += qGreen(p);
-                totalB += qBlue(p);
-                count++;
-            }
-        }
-    }
-    if (count == 0) return QColor(26, 26, 30);
-
-    QColor avg(static_cast<int>(totalR / count),
-               static_cast<int>(totalG / count),
-               static_cast<int>(totalB / count));
-
-    float h = avg.hueF();
-    float s = avg.saturationF();
-    float v = avg.valueF();
-    if (h < 0.0f) h = 0.0f;
-
-    // Spotify style: deep, muted atmospheric tint
-    s = qBound(0.35f, s * 1.25f, 0.70f);
-    v = qBound(0.14f, v * 0.40f, 0.28f);
-
-    return QColor::fromHsvF(h, s, v);
+    return PlaylistModel::extractDominantColor(img);
 }
 
 void LyricsBackend::updateCoverColor() {

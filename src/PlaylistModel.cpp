@@ -1,7 +1,212 @@
 #include "PlaylistModel.hpp"
 #include <QDebug>
+#include <algorithm>
+#include <cmath>
+#include <vector>
 
 namespace Kalorite {
+
+static double relLuminance(const QColor& c) {
+    auto toLin = [](double v) {
+        return (v <= 0.04045) ? (v / 12.92) : std::pow((v + 0.055) / 1.055, 2.4);
+    };
+    double r = toLin(c.redF());
+    double g = toLin(c.greenF());
+    double b = toLin(c.blueF());
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+QColor PlaylistModel::extractDominantColor(const QImage& img) {
+    if (img.isNull()) {
+        return QColor(26, 26, 30);
+    }
+    QImage tiny = img.scaled(24, 24, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).convertToFormat(QImage::Format_ARGB32);
+    qint64 totalR = 0, totalG = 0, totalB = 0;
+    int count = 0;
+    for (int y = 0; y < tiny.height(); ++y) {
+        const QRgb* line = reinterpret_cast<const QRgb*>(tiny.constScanLine(y));
+        for (int x = 0; x < tiny.width(); ++x) {
+            QRgb p = line[x];
+            if (qAlpha(p) > 50) {
+                totalR += qRed(p);
+                totalG += qGreen(p);
+                totalB += qBlue(p);
+                count++;
+            }
+        }
+    }
+    if (count == 0) return QColor(26, 26, 30);
+
+    QColor avg(static_cast<int>(totalR / count),
+               static_cast<int>(totalG / count),
+               static_cast<int>(totalB / count));
+
+    float h = avg.hueF();
+    float s = avg.saturationF();
+    float v = avg.valueF();
+    if (h < 0.0f) h = 0.0f;
+
+    // Spotify style: deep, muted atmospheric tint
+    s = qBound(0.35f, s * 1.25f, 0.70f);
+    v = qBound(0.14f, v * 0.40f, 0.28f);
+
+    return QColor::fromHsvF(h, s, v);
+}
+
+// Extracts the color from the cover palette that provides the best contrast
+// with the bottom region of the cover (where the progress strip is located).
+QColor PlaylistModel::extractProgressAccentColor(const QImage& img) {
+    if (img.isNull()) {
+        return QColor(100, 140, 210);
+    }
+
+    QImage scaled = img.scaled(48, 48, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).convertToFormat(QImage::Format_ARGB32);
+
+    // 1. Analyze bottom region (bottom 25%, rows 36-47)
+    qint64 bR = 0, bG = 0, bB = 0;
+    int bCount = 0;
+    for (int y = 36; y < 48; ++y) {
+        const QRgb* line = reinterpret_cast<const QRgb*>(scaled.constScanLine(y));
+        for (int x = 0; x < 48; ++x) {
+            QRgb p = line[x];
+            if (qAlpha(p) > 50) {
+                bR += qRed(p);
+                bG += qGreen(p);
+                bB += qBlue(p);
+                bCount++;
+            }
+        }
+    }
+
+    QColor bottomColor = (bCount > 0)
+        ? QColor(static_cast<int>(bR / bCount), static_cast<int>(bG / bCount), static_cast<int>(bB / bCount))
+        : QColor(20, 20, 20);
+
+    double bottomLum = relLuminance(bottomColor);
+
+    // 2. Quantize colors from the whole image into 8x8x8 = 512 buckets (32 levels per channel)
+    struct Bucket {
+        qint64 r = 0, g = 0, b = 0;
+        int count = 0;
+    };
+    Bucket buckets[8][8][8];
+
+    for (int y = 0; y < scaled.height(); ++y) {
+        const QRgb* line = reinterpret_cast<const QRgb*>(scaled.constScanLine(y));
+        for (int x = 0; x < scaled.width(); ++x) {
+            QRgb p = line[x];
+            if (qAlpha(p) > 50) {
+                int ri = qBound(0, qRed(p) / 32, 7);
+                int gi = qBound(0, qGreen(p) / 32, 7);
+                int bi = qBound(0, qBlue(p) / 32, 7);
+                buckets[ri][gi][bi].r += qRed(p);
+                buckets[ri][gi][bi].g += qGreen(p);
+                buckets[ri][gi][bi].b += qBlue(p);
+                buckets[ri][gi][bi].count++;
+            }
+        }
+    }
+
+    struct Candidate {
+        QColor color;
+        int count = 0;
+    };
+    std::vector<Candidate> candidates;
+    for (int r = 0; r < 8; ++r) {
+        for (int g = 0; g < 8; ++g) {
+            for (int b = 0; b < 8; ++b) {
+                const auto& bkt = buckets[r][g][b];
+                // Ignore tiny noise (< 0.25% of image, i.e. < 6 pixels)
+                if (bkt.count >= 6) {
+                    candidates.push_back({
+                        QColor(static_cast<int>(bkt.r / bkt.count),
+                               static_cast<int>(bkt.g / bkt.count),
+                               static_cast<int>(bkt.b / bkt.count)),
+                        bkt.count
+                    });
+                }
+            }
+        }
+    }
+
+    if (candidates.empty()) {
+        return bottomLum < 0.5 ? QColor(200, 200, 210) : QColor(40, 40, 50);
+    }
+
+    // 3. Find the candidate that contrasts best with bottomColor
+    QColor bestColor = candidates[0].color;
+    double bestScore = -1e9;
+    double bestContrastRatio = 1.0;
+
+    for (const auto& cand : candidates) {
+        double candLum = relLuminance(cand.color);
+        double maxL = std::max(candLum, bottomLum);
+        double minL = std::min(candLum, bottomLum);
+        double cr = (maxL + 0.05) / (minL + 0.05);
+
+        float s = cand.color.saturationF();
+        float v = cand.color.valueF();
+
+        // Euclidean color distance in RGB
+        double dr = (cand.color.redF() - bottomColor.redF());
+        double dg = (cand.color.greenF() - bottomColor.greenF());
+        double db = (cand.color.blueF() - bottomColor.blueF());
+        double colorDist = std::sqrt(dr * dr * 0.299 + dg * dg * 0.587 + db * db * 0.114);
+
+        // Score based on contrast ratio, color distance, and saturation
+        double score = cr * 2.0 + colorDist * 5.0 + s * 4.0 + std::log1p(cand.count) * 0.3;
+
+        // If bottom is dark, penalize very dark colors
+        if (bottomLum < 0.2 && v < 0.35) score -= 10.0;
+        // If bottom is light, penalize very bright washed-out colors
+        if (bottomLum > 0.6 && v > 0.85 && s < 0.2) score -= 10.0;
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestColor = cand.color;
+            bestContrastRatio = cr;
+        }
+    }
+
+    // 4. If contrast ratio is low (e.g. monochrome / low-contrast cover), ensure visibility
+    if (bestContrastRatio < 3.0) {
+        float h = bestColor.hueF();
+        float s = bestColor.saturationF();
+        float v = bestColor.valueF();
+        if (h < 0.0f) h = 0.0f;
+
+        if (bottomLum < 0.5) {
+            // Lighten for dark bottom
+            v = std::max(v, 0.75f);
+            s = qBound(0.40f, s * 1.3f, 0.90f);
+        } else {
+            // Darken for light bottom
+            v = std::min(v, 0.25f);
+            s = std::max(s, 0.50f);
+        }
+        return QColor::fromHsvF(h, s, v);
+    }
+
+    // Slight polish: keep selected hue, ensure sufficiently vivid against background
+    if (bottomLum < 0.4) {
+        float h = bestColor.hueF();
+        float s = bestColor.saturationF();
+        float v = bestColor.valueF();
+        if (h < 0.0f) h = 0.0f;
+        v = std::max(v, 0.55f);
+        s = std::max(s, 0.35f);
+        return QColor::fromHsvF(h, s, v);
+    } else if (bottomLum > 0.6) {
+        float h = bestColor.hueF();
+        float s = bestColor.saturationF();
+        float v = bestColor.valueF();
+        if (h < 0.0f) h = 0.0f;
+        v = std::min(v, 0.40f);
+        return QColor::fromHsvF(h, s, v);
+    }
+
+    return bestColor;
+}
 
 PlaylistModel::PlaylistModel(QObject* parent) : QAbstractListModel(parent) {}
 
@@ -26,6 +231,9 @@ QVariant PlaylistModel::data(const QModelIndex& index, int role) const {
     case ArtistRole:        return track.artist;
     case HasCoverRole:      return track.hasCover;
     case CoverUrlRole:      return track.hasCover ? (QStringLiteral("image://cover/") + QString::number(track.id) + QStringLiteral("?v=") + QString::number(track.coverVersion)) : QString();
+    case ProgressRole:      return track.progress;
+    case PositionMsRole:    return track.positionMs;
+    case AccentColorRole:   return track.accentColor;
     }
     return {};
 }
@@ -41,6 +249,9 @@ QHash<int, QByteArray> PlaylistModel::roleNames() const {
         { ArtistRole,        "artist" },
         { HasCoverRole,      "hasCover" },
         { CoverUrlRole,      "coverUrl" },
+        { ProgressRole,      "progress" },
+        { PositionMsRole,    "positionMs" },
+        { AccentColorRole,   "accentColor" },
     };
 }
 
@@ -141,16 +352,44 @@ void PlaylistModel::setDuration(int row, const QString& duration) {
     }
 }
 
+double PlaylistModel::progressAt(int row) const {
+    if (row < 0 || row >= count()) return 0.0;
+    return m_tracks.at(row).progress;
+}
+
+qint64 PlaylistModel::positionMsAt(int row) const {
+    if (row < 0 || row >= count()) return 0;
+    return m_tracks.at(row).positionMs;
+}
+
+void PlaylistModel::setProgress(int row, double progress, qint64 positionMs) {
+    if (row < 0 || row >= m_tracks.size()) return;
+    progress = qBound(0.0, progress, 1.0);
+    if (qAbs(m_tracks[row].progress - progress) < 0.002 && qAbs(m_tracks[row].positionMs - positionMs) < 250) {
+        return;
+    }
+    m_tracks[row].progress = progress;
+    m_tracks[row].positionMs = positionMs;
+
+    int vRow = m_visibleRows.indexOf(row);
+    if (vRow >= 0) {
+        emit dataChanged(index(vRow), index(vRow), { ProgressRole, PositionMsRole });
+    }
+}
+
 quint64 PlaylistModel::append(const QString& path,
                               const QString& name,
                               const QString& title,
                               const QString& artist,
                               const QString& duration,
                               const QImage& cover,
-                              bool hasCover) {
+                              bool hasCover,
+                              double progress,
+                              qint64 positionMs) {
     const int origIdx = count();
     const quint64 trackId = m_nextTrackId++;
-    Track track{ trackId, path, name, title, artist, duration, 0, cover, hasCover, 1 };
+    QColor accent = (hasCover && !cover.isNull()) ? extractProgressAccentColor(cover) : QColor(100, 140, 210);
+    Track track{ trackId, path, name, title, artist, duration, 0, cover, hasCover, 1, progress, positionMs, accent };
     m_tracks.append(track);
 
     if (matchesFilter(track)) {
@@ -187,6 +426,7 @@ void PlaylistModel::updateMetadataById(quint64 trackId,
                 m_tracks[i].cover = cover;
                 m_tracks[i].hasCover = true;
                 m_tracks[i].coverVersion++;
+                m_tracks[i].accentColor = extractProgressAccentColor(cover);
                 changed = true;
             }
             if (changed) {
@@ -198,7 +438,7 @@ void PlaylistModel::updateMetadataById(quint64 trackId,
                          << "coverVersion=" << m_tracks[i].coverVersion;
                 if (vRow >= 0) {
                     emit dataChanged(index(vRow), index(vRow),
-                                     { TitleRole, ArtistRole, NameRole, HasCoverRole, CoverUrlRole });
+                                     { TitleRole, ArtistRole, NameRole, HasCoverRole, CoverUrlRole, AccentColorRole });
                 }
             }
             break;

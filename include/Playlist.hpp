@@ -27,11 +27,20 @@ namespace Kalorite {
         bool hasCoverAt(int row) const;
         int rowForPath(const QString& path) const;
 
+        struct Entry {
+            QString path;
+            double progress = 0.0;
+            qint64 positionMs = 0;
+        };
+
         // Returns false (and changes nothing) for an empty or already-listed path.
-        bool addTrack(const QString& path, const QString& displayName = QString(), qint64 durationMs = -1);
+        bool addTrack(const QString& path, const QString& displayName = QString(), qint64 durationMs = -1, double progress = 0.0, qint64 positionMs = 0);
         void removeRow(int row);
         void clear();
         void setRowDuration(int row, qint64 durationMs);
+        double progressAt(int row) const;
+        qint64 positionMsAt(int row) const;
+        void setRowProgress(int row, double progress, qint64 positionMs = 0);
 
         static QString formatDuration(qint64 durationMs);
         static qint64 getAudioDurationMs(const QString& path);
@@ -43,6 +52,7 @@ namespace Kalorite {
 
         void saveToFile(const QString& filePath) const;
         static QStringList readPathsFromFile(const QString& filePath);
+        static QList<Entry> readEntriesFromFile(const QString& filePath);
 
     signals:
         // Emitted whenever the set or order of tracks changes; shuffle order depends on it.

@@ -39,7 +39,7 @@ int Playlist::rowForPath(const QString& path) const {
     return -1;
 }
 
-bool Playlist::addTrack(const QString& path, const QString& displayName, qint64 durationMs) {
+bool Playlist::addTrack(const QString& path, const QString& displayName, qint64 durationMs, double progress, qint64 positionMs) {
     if (path.isEmpty()) return false;
     if (rowForPath(path) >= 0) return false;
 
@@ -64,7 +64,7 @@ bool Playlist::addTrack(const QString& path, const QString& displayName, qint64 
 
     QString durStr = formatDuration(durationMs);
 
-    quint64 trackId = m_model->append(path, name, title, artist, durStr, meta.cover, meta.hasCover);
+    quint64 trackId = m_model->append(path, name, title, artist, durStr, meta.cover, meta.hasCover, progress, positionMs);
     emit contentsChanged();
 
     bool needCover = !meta.hasCover;
@@ -133,6 +133,18 @@ void Playlist::setRowDuration(int row, qint64 durationMs) {
     m_model->setDuration(row, formatDuration(durationMs));
 }
 
+double Playlist::progressAt(int row) const {
+    return m_model->progressAt(row);
+}
+
+qint64 Playlist::positionMsAt(int row) const {
+    return m_model->positionMsAt(row);
+}
+
+void Playlist::setRowProgress(int row, double progress, qint64 positionMs) {
+    m_model->setProgress(row, progress, positionMs);
+}
+
 // Enqueuing appends the next number ([1], [2], ...); toggling an already-queued row
 // removes it and renumbers the rest.
 void Playlist::toggleQueue(int row) {
@@ -190,24 +202,59 @@ void Playlist::closeQueueGap(int slot) {
 void Playlist::saveToFile(const QString& filePath) const {
     nlohmann::json playlist = nlohmann::json::array();
     for (int i = 0; i < count(); i++) {
-        playlist.push_back(m_model->pathAt(i).toStdString());
+        nlohmann::json item;
+        item["path"] = m_model->pathAt(i).toStdString();
+        item["progress"] = m_model->progressAt(i);
+        item["position_ms"] = m_model->positionMsAt(i);
+        playlist.push_back(item);
     }
 
     std::ofstream file(filePath.toStdString());
-    file << playlist;
-
+    if (file.is_open()) {
+        file << playlist.dump(4);
+    }
 }
 
 QStringList Playlist::readPathsFromFile(const QString& filePath) {
-    std::ifstream file(filePath.toStdString());
-    nlohmann::json playlist;
-    file >> playlist;
-
+    const auto entries = readEntriesFromFile(filePath);
     QStringList paths;
-    for (size_t i = 0; i < playlist.size(); i++) {
-        paths << QString::fromStdString(playlist[i]);
+    for (const auto& e : entries) {
+        paths.append(e.path);
     }
     return paths;
+}
+
+QList<Playlist::Entry> Playlist::readEntriesFromFile(const QString& filePath) {
+    std::ifstream file(filePath.toStdString());
+    if (!file.is_open()) return {};
+    nlohmann::json playlist;
+    try {
+        file >> playlist;
+    } catch (...) {
+        return {};
+    }
+
+    QList<Entry> entries;
+    for (size_t i = 0; i < playlist.size(); i++) {
+        Entry e;
+        if (playlist[i].is_string()) {
+            e.path = QString::fromStdString(playlist[i].get<std::string>());
+            e.progress = 0.0;
+            e.positionMs = 0;
+        } else if (playlist[i].is_object() && playlist[i].contains("path")) {
+            e.path = QString::fromStdString(playlist[i]["path"].get<std::string>());
+            if (playlist[i].contains("progress") && playlist[i]["progress"].is_number()) {
+                e.progress = playlist[i]["progress"].get<double>();
+            }
+            if (playlist[i].contains("position_ms") && playlist[i]["position_ms"].is_number()) {
+                e.positionMs = playlist[i]["position_ms"].get<qint64>();
+            }
+        }
+        if (!e.path.isEmpty()) {
+            entries.append(e);
+        }
+    }
+    return entries;
 }
 
 void Playlist::onRowsMoved() {

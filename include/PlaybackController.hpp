@@ -40,14 +40,14 @@ namespace Kalorite {
         void togglePlay();
         void seekMs(int ms);
 
-        void selectTrack(int row);
+        void selectTrack(int row, bool restoreSavedPosition = false);
         void skipNext();
         void skipPrevious();
         void cycleLoopType();
         void toggleQueue(int row);
 
         // Adds a track to the playlist. The first track ever added becomes the loaded one.
-        void addTrack(const QString& path, const QString& displayName = QString(), qint64 durationMs = -1);
+        void addTrack(const QString& path, const QString& displayName = QString(), qint64 durationMs = -1, double progress = 0.0, qint64 positionMs = 0);
         void loadTrack(const std::string& path);
         // Plays a file outside the playlist (startup greeting); plugins are not notified.
         void playDetached(const QString& path);
