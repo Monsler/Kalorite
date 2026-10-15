@@ -24,16 +24,31 @@
 
   <screenshots>
   <screenshot type="default">
-    <image type="source">https://i.postimg.cc/ZnTHrDVg/image.png</image>
+    <image type="source">https://i.ibb.co/TxW3w9m4/20261015-210832.png</image>
     <caption>Main window</caption>
   </screenshot>
   <screenshot>
-    <image type="source">https://i.postimg.cc/7L0njyRF/image.png</image>
-    <caption>Main window (modern style)</caption>
+    <image type="source">https://i.ibb.co/3yh2DWBt/20261015-210902.png</image>
+  </screenshot>
+  <screenshot>
+    <image type="source">https://i.ibb.co/SwtPyP6P/20261015-210922.png</image>
   </screenshot>
   </screenshots>
 
   <releases>
+    <release version="4.0.0" date="2026-10-15">
+    <description>
+      <p>Thanks everyone for using Kalorite! This update includes:</p>
+      <ul>
+        <li>Complete UI rewrite in QML: fresh, modern and smooth look.</li>
+        <li>Synchronized lyrics: .lrc files support and dedicated lyrics viewer.</li>
+        <li>MusicBrainz integration: automatic album artwork and track metadata fetching.</li>
+        <li>Playback saving: Kalorite now remembers where you left off.</li>
+        <li>Fixed memory leaks, segfaults and shuffle behavior.</li>
+      </ul>
+      <p>Report any found bugs to GitHub.</p>
+    </description>
+    </release>
     <release version="3.2.0" date="2026-07-10">
     <description>
       <p>Thanks everyone for using Kalorite! This update includes:</p>
@@ -46,6 +61,56 @@
       <p>Report any found bugs to GitHub.</p>
     </description>
     </release>
+    <release version="3.1.0" date="2026-07-03">
+    <description>
+      <p>Thanks everyone for using Kalorite! This update includes:</p>
+      <ul>
+        <li>Song downloading dialog fix</li>
+        <li>Pattern visualization with 11 different modes</li>
+        <li>AudioCD Support</li>
+        <li>Fix of options presented in right-click context menu</li>
+        <li>Something cool</li>
+      </ul>
+      <p>Report any found bugs to GitHub.</p>
+    </description>
+    </release>
+    <release version="3.0.2" date="2026-07-03">
+    <description>
+      <p>Thanks everyone for using Kalorite! This is the biggest update of our app yet:</p>
+      <ul>
+        <li>Advanced luajit plugin system</li>
+        <li>Audio visualizing</li>
+        <li>Playlist &amp; overall application look rehaul</li>
+        <li>Migration to miniaudio engine backend</li>
+        <li>Right click on visualizator to open a context menu with audio bus selection, crossfading, bit perfect audio delivery, smart volume control and double buffering.</li>
+      </ul>
+      <p>Report any found bugs to GitHub.</p>
+    </description>
+    </release>
+    <release version="2.0.1" date="2025-12-18">
+    <description>
+      <p>Thanks everyone for using Kalorite! This update includes:</p>
+      <ul>
+        <li>Fix of progress bar in sound downloader</li>
+        <li>Fix of sound downloader cancel button</li>
+        <li>Fix of memory leak in mixer</li>
+      </ul>
+    </description>
+    </release>
+    <release version="2.0.0" date="2025-12-18">
+    <description>
+      <p>Thanks everyone for using Kalorite! This update includes:</p>
+      <ul>
+        <li>Rehauled mixer code (no more spaghetti code</li>
+        <li>Track downloading from url support</li>
+        <li>Playback now supports percent displaying in taskbar on KDE Plasma</li>
+      </ul>
+    </description>
+    </release>
+    <release version="1.1.0" date="2025-10-21"/>
+    <release version="1.0.18" date="2025-10-16"/>
+    <release version="1.0.17" date="2025-10-16"/>
+    <release version="1.0.16" date="2025-10-16"/>
   </releases>
 
   <content_rating type="oars-1.1"/>
