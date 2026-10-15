@@ -30,9 +30,15 @@ LyricsBackend::LyricsBackend(PlaybackController* playback, Mixer* mixer, Playlis
       m_playlist(playlist),
       m_net(new QNetworkAccessManager(this)) {
     if (m_playlist && m_playlist->model()) {
-        connect(m_playlist->model(), &QAbstractItemModel::dataChanged, this, [this]() {
-            updateCoverColor();
-        });
+        connect(m_playlist->model(), &QAbstractItemModel::dataChanged, this,
+            [this](const QModelIndex& topLeft, const QModelIndex& bottomRight, const QList<int>& roles) {
+                if (roles.isEmpty() || roles.contains(PlaylistModel::HasCoverRole) || roles.contains(PlaylistModel::CoverUrlRole)) {
+                    int curRow = m_playlist->currentRow();
+                    if (curRow >= topLeft.row() && curRow <= bottomRight.row()) {
+                        updateCoverColor();
+                    }
+                }
+            });
     }
 }
 
@@ -124,9 +130,9 @@ void LyricsBackend::onPlaybackPositionChanged(int posMs) {
 
     int newActive = -1;
     for (int i = 0; i < m_lines.size(); ++i) {
-        if (m_lines[i].timeMs <= posMs) {
+        if (m_lines[i].timeMs >= 0 && m_lines[i].timeMs <= posMs) {
             newActive = i;
-        } else {
+        } else if (m_lines[i].timeMs > posMs) {
             break;
         }
     }

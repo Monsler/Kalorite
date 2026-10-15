@@ -19,7 +19,6 @@ Pane {
         focus: true
         model: playlistModel
         boundsBehavior: Flickable.StopAtBounds
-        ScrollBar.vertical: ScrollBar {}
 
         Keys.onPressed: function (event) {
             const isQueueKey = (event.key === Qt.Key_R || event.key === Qt.Key_Q ||

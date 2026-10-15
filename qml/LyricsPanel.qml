@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.impl
+import QtQuick.Effects
 
 Item {
     id: lyricsPanel
@@ -27,13 +28,12 @@ Item {
         id: scrollAnim
         target: list
         property: "contentY"
-        duration: 400
+        duration: 350
         easing.type: Easing.OutCubic
     }
 
     function smoothScrollTo(idx, force) {
         if ((!isSynced && !force) || idx < 0 || list.moving || list.flicking) return
-        list.currentIndex = idx
 
         let item = list.itemAtIndex(idx)
         if (item) {
@@ -43,12 +43,18 @@ Item {
             let maxY = Math.max(minY, list.contentHeight - list.height + list.bottomMargin)
             let clampedY = Math.max(minY, Math.min(targetY, maxY))
 
+            if (Math.abs(list.contentY - clampedY) < 1) return
+
             scrollAnim.stop()
             scrollAnim.from = list.contentY
             scrollAnim.to = clampedY
             scrollAnim.start()
         } else {
-            list.positionViewAtIndex(idx, ListView.Center)
+            list.positionViewAtIndex(idx, ListView.Beginning)
+            let targetY = list.contentY - Math.round((list.height - 40) / 2)
+            let minY = -list.topMargin
+            let maxY = Math.max(minY, list.contentHeight - list.height + list.bottomMargin)
+            list.contentY = Math.max(minY, Math.min(targetY, maxY))
         }
     }
 
@@ -125,8 +131,10 @@ Item {
             spacing: 6
             topMargin: Math.round(height / 2)
             bottomMargin: Math.round(height / 2)
-            cacheBuffer: 3000
+            cacheBuffer: 2500
             boundsBehavior: Flickable.StopAtBounds
+            highlightRangeMode: ListView.NoHighlightRange
+            keyNavigationEnabled: false
 
             onMovementStarted: {
                 scrollAnim.stop()
@@ -162,10 +170,11 @@ Item {
                 width: list.width
                 height: lineText.implicitHeight + 10
 
-                property bool isCurrent: lyrics.isSynced && lineRow.isActive
+                property bool isCurrent: lyrics && lyrics.isSynced && lyrics.activeIndex >= 0 && (lineRow.index === lyrics.activeIndex)
+                property bool isNext: lyrics && lyrics.isSynced && lyrics.activeIndex >= 0 && (lineRow.index === lyrics.activeIndex + 1)
                 property bool hovered: rowMouse.containsMouse
 
-                Label {
+                Text {
                     id: lineText
                     anchors.centerIn: parent
                     width: parent.width - 32
@@ -173,26 +182,29 @@ Item {
                     wrapMode: Text.Wrap
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
-                    font.weight: lineRow.isCurrent ? Font.Bold : Font.DemiBold
+                    font.weight: Font.Bold
                     font.pixelSize: 18
-                    renderType: Text.QtRendering
+                    renderType: Text.CurveRendering
                     color: "#ffffff"
-                    opacity: lineRow.isCurrent ? 1.0 : (lineRow.hovered ? 0.70 : 0.35)
-                    scale: lineRow.isCurrent ? 1.0 : 0.72
+                    opacity: lineRow.isCurrent ? 1.0 : (lineRow.hovered ? 0.80 : (lineRow.isNext ? 0.60 : 0.35))
+                    scale: lineRow.isCurrent ? 1.0 : (lineRow.isNext ? 0.85 : 0.72)
                     transformOrigin: Item.Center
 
+                    smooth: true
+                    antialiasing: true
+
                     Behavior on opacity {
-                        NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+                        NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
                     }
                     Behavior on scale {
-                        NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+                        NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
                     }
                 }
 
                 MouseArea {
                     id: rowMouse
                     anchors.fill: parent
-                    hoverEnabled: true
+                    hoverEnabled: !list.moving && !list.flicking
                     cursorShape: Qt.PointingHandCursor
 
                     onClicked: {
@@ -206,10 +218,83 @@ Item {
             }
         }
 
-        // Entire panel hover sensor for top-right actions
+        // Mask for progressive blur: transparent in center (sharp text), opaque at edges (max blur)
+        Item {
+            id: progressiveMask
+            anchors.fill: list
+            visible: false
+
+            Rectangle {
+                anchors.fill: parent
+                gradient: Gradient {
+                    GradientStop { position: 0.00; color: "#ffffffff" }
+                    GradientStop { position: 0.16; color: "#e6ffffff" }
+                    GradientStop { position: 0.32; color: "#00ffffff" }
+                    GradientStop { position: 0.68; color: "#00ffffff" }
+                    GradientStop { position: 0.84; color: "#e6ffffff" }
+                    GradientStop { position: 1.00; color: "#ffffffff" }
+                }
+            }
+        }
+
+        // Progressive edge blur & fade overlay (seamlessly intensifies toward borders, disappears on manual scroll)
+        Item {
+            id: blurContainer
+            anchors.fill: list
+            z: 5
+            enabled: false
+
+            property bool active: lyricsPanel.isSynced && lyrics && lyrics.hasLyrics && lyrics.isSynced
+
+            opacity: active ? 1.0 : 0.0
+            visible: opacity > 0.005
+
+            Behavior on opacity {
+                NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
+            }
+
+            ShaderEffectSource {
+                id: listBlurSource
+                anchors.fill: parent
+                sourceItem: list
+                live: blurContainer.visible
+                hideSource: false
+                visible: false
+            }
+
+            // Strong blur layer masked progressively toward edges
+            MultiEffect {
+                anchors.fill: parent
+                source: listBlurSource
+                blurEnabled: true
+                blur: 1.0
+                blurMax: 48
+                blurMultiplier: 1.5
+                maskEnabled: true
+                maskSource: progressiveMask
+            }
+
+            // Atmospheric edge fade tint into background color
+            Rectangle {
+                anchors.fill: parent
+                gradient: Gradient {
+                    GradientStop { position: 0.00; color: Qt.rgba(bgRect.color.r, bgRect.color.g, bgRect.color.b, 0.70) }
+                    GradientStop { position: 0.18; color: Qt.rgba(bgRect.color.r, bgRect.color.g, bgRect.color.b, 0.30) }
+                    GradientStop { position: 0.32; color: "transparent" }
+                    GradientStop { position: 0.68; color: "transparent" }
+                    GradientStop { position: 0.82; color: Qt.rgba(bgRect.color.r, bgRect.color.g, bgRect.color.b, 0.30) }
+                    GradientStop { position: 1.00; color: Qt.rgba(bgRect.color.r, bgRect.color.g, bgRect.color.b, 0.70) }
+                }
+            }
+        }
+
+        // Top-right hover sensor for action buttons
         MouseArea {
             id: panelHoverArea
-            anchors.fill: parent
+            anchors.top: parent.top
+            anchors.right: parent.right
+            width: 100
+            height: 42
             hoverEnabled: true
             acceptedButtons: Qt.NoButton
             z: 1
